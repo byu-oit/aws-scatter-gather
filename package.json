@@ -19,6 +19,7 @@
     "gather",
     "lambda",
     "scatter",
+    "scather",
     "sns",
     "topic"
   ],
