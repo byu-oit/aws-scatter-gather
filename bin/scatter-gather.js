@@ -104,24 +104,24 @@ module.exports = function (sns, configuration) {
             // if already resolved then exit now
             if (!deferred.promise.isPending()) return;
 
-            // define constants
-            const name = event.sender.name;
+            // delete reference from the wait map
+            const index = result.missing.indexOf(event.sender.name);
+            if (index !== -1) result.missing.splice(index, 1);
+
+            // create the item
             const item = {
                 data: event.data,
                 error: event.error,
-                name: name
+                expected: index !== -1,
+                name: event.sender.name
             };
-
-            // delete reference from the wait map
-            const index = result.missing.indexOf(name);
-            if (index !== -1) result.missing.splice(index, 1);
 
             // add the item to the result array and map
             result.push(item);
             result.map[item.name] = item;
 
             // add the item to it's appropriate filter set
-            if (index === -1) {
+            if (!item.expected) {
                 result.additional.list.push(item);
                 result.additional.map[item.name] = item;
             } else {
