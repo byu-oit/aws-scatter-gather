@@ -1,0 +1,43 @@
+{
+  "name": "aws-scatter-gather",
+  "version": "0.0.1",
+  "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS.",
+  "main": "index.js",
+  "bin": {
+    "aws-scatter-gather": "scatter-gather.js"
+  },
+  "scripts": {
+    "test": "mocha tests/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/byu-oit-appdev/aws-scatter-gather.git"
+  },
+  "keywords": [
+    "amazon",
+    "AWS",
+    "gather",
+    "lambda",
+    "scatter",
+    "sns",
+    "topic"
+  ],
+  "author": "James Speirs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/byu-oit-appdev/aws-scatter-gather/issues"
+  },
+  "homepage": "https://github.com/byu-oit-appdev/aws-scatter-gather#readme",
+  "dependencies": {
+    "bluebird": "^3.4.0",
+    "body-parser": "^1.15.1",
+    "express": "^4.13.4",
+    "hashids": "^1.0.2",
+    "uuid": "^2.0.2"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.5.3",
+    "request": "^2.72.0"
+  }
+}
