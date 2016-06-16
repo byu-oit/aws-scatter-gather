@@ -137,7 +137,7 @@ function Scather (sns, configuration) {
                                     Message: JSON.stringify(result),
                                     TopicArn: record.Sns.TopicArn
                                 };
-                                sns.publish(params, function(err, data) {
+                                sns.publish(params, function(err) {
                                     if (err) return callback(err);
                                     if (result.error) return callback(result.error);
                                     return callback(null, result.response);
