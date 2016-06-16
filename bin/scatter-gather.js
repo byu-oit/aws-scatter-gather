@@ -126,11 +126,11 @@ function Scather (sns, configuration) {
                                 const result = {
                                     error: err,
                                     data: response,
-                                    sender: {                               // required
-                                        name: context.functionName || '',   // the name of the sender (only required when a target is specified)
-                                        responseId: null,                   // no response needed
-                                        targetId: sender.responseId,        // someone is expecting the event with this ID
-                                        version: '1.0'                      // the sender version
+                                    sender: {
+                                        name: config.name || context.functionName || '',
+                                        responseId: null,
+                                        targetId: sender.responseId,
+                                        version: config.version
                                     }
                                 };
                                 const params = {
