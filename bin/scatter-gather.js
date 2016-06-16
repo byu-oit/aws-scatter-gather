@@ -15,20 +15,24 @@
  *    limitations under the License.
  **/
 'use strict';
-const defer         = require('./defer');
+const getGatherer   = require('./gatherer');
 const machineId     = require('./machine-id');
 const Promise       = require('bluebird');
 const Server        = require('./server');
 const uuid          = require('uuid').v4;
 
+module.exports = Scather;
+
 /**
  * Get the scatter gather factory function.
  * @param {object} sns An AWS sns instance to publish events to and to subscribe to.
  * @param {object} configuration The configuration to apply to this scatter-gather instance.
- * @returns {Promise<{request: function, response: function}>}
+ * @returns {Scather}
  */
-module.exports = function (sns, configuration) {
+function Scather (sns, configuration) {
+    const factory = Object.create(Scather.prototype);
     const gatherers = {};
+    var serverPromise;
 
     // build the normalized configuration
     const defaults = {
@@ -40,125 +44,63 @@ module.exports = function (sns, configuration) {
     };
     const config = Object.assign(defaults, configuration);
 
-    // start the server
-    return Server(sns, config, notificationHandler)
-        .then(function(app) {
-            const close = function() {
+    /**
+     * If the server is running then end it.
+     * @returns {Promise<undefined>}
+     */
+    factory.end = function() {
+        if (!serverPromise) return Promise.resolve();
+        return serverPromise.then(end => end());
+    };
+
+    /**
+     * Send a scattered request along the configured AWS SNS topic.
+     * @param {*} event The event data to send with the request.
+     * @param {object} configuration The gather configuration.
+     * @returns {Promise<object>}
+     */
+    factory.request = function (event, configuration) {
+        return startServer()
+            .then(function() {
                 return new Promise(function(resolve, reject) {
-                    app.server.close(function(err) {
-                        if (err) return reject(err);
-                        resolve();
-                    })
+
+                    // get unique id
+                    const id = (config.name ? config.name + '-' : '') + machineId + '-' + uuid();
+
+                    // build and store the gatherer
+                    const gatherer = getGatherer(configuration);
+                    gatherers[id] = gatherer;
+
+                    // create publish event parameters
+                    const publishParams = {
+                        Message: JSON.stringify({
+                            error: null,
+                            data: event,
+                            sender: {
+                                name: config.name,
+                                responseId: id,
+                                targetId: null,
+                                version: config.version
+                            }
+                        }),
+                        TopicArn: config.topicArn
+                    };
+
+                    // publish the event
+                    sns.publish(publishParams, function(err) {
+                        if (err) reject(err);
+                    });
+
+                    // use the response from the gatherer's promise to resolve or reject this promise
+                    gatherer.promise
+                        .then(function(result) {
+                            delete gatherers[id];
+                            result.complete = result.missing.length === 0;
+                            resolve(result);
+                        }, reject);
                 });
-            };
-            return {
-                end: close,
-                request: scatterGather,
-                response: responseHandler
-            }
-        });
-
-
-
-
-
-
-    function defineGatherer(configuration) {
-
-        // get normalized configuration
-        const defaults = {
-            maxWait: 3000,
-            minWait: 0,
-            responses: []
-        };
-        const config = Object.assign(defaults, configuration || {});
-
-        // define the deferred object
-        const deferred = defer();
-
-        // define the results object
-        const result = [];
-        result.additional = { list: [], map: {} };
-        result.complete = false;
-        result.expected = { list: [], map: {} };
-        result.missing = config.responses.slice(0);
-        result.map = {};
-
-        // define maximum and minimum delay promises
-        const minTimeoutPromise = Promise.delay(config.minWait);
-        const maxTimeoutPromise = Promise.delay(config.maxWait);
-
-        // if minimum delay is reached and nothing is missing then resolve
-        minTimeoutPromise.then(() => {
-            if (result.missing.length === 0 && deferred.promise.isPending()) deferred.resolve(result);
-        });
-
-        // if maximum delay is reached then resolve
-        maxTimeoutPromise.then(() => {
-            if (deferred.promise.isPending()) deferred.resolve(result);
-        });
-
-        // define the gatherer
-        function gatherer(event) {
-
-            // if already resolved then exit now
-            if (!deferred.promise.isPending()) return;
-
-            // delete reference from the wait map
-            const index = result.missing.indexOf(event.sender.name);
-            if (index !== -1) result.missing.splice(index, 1);
-
-            // create the item
-            const item = {
-                data: event.data,
-                error: event.error,
-                expected: index !== -1,
-                name: event.sender.name
-            };
-
-            // add the item to the result array and map
-            result.push(item);
-            result.map[item.name] = item;
-
-            // add the item to it's appropriate filter set
-            if (!item.expected) {
-                result.additional.list.push(item);
-                result.additional.map[item.name] = item;
-            } else {
-                result.expected.list.push(item);
-                result.expected.map[item.name] = item;
-            }
-
-            // all expected responses received and min timeout passed, so resolve the deferred promise
-            if (result.missing.length === 0 && minTimeoutPromise.isFulfilled() && deferred.promise.isPending()) {
-                deferred.resolve(result);
-            }
-        }
-
-        // expose the promise to outside code
-        gatherer.promise = deferred.promise;
-
-        // return the gatherer
-        return gatherer;
-    }
-
-    /**
-     * Get a unique id.
-     * @returns {string}
-     */
-    function getUniqueId() {
-        return (config.name ? config.name + '-' : '') + machineId + '-' + uuid();
-    }
-
-    /**
-     * Accept a notification body and process it.
-     * @param {object} body
-     */
-    function notificationHandler(body) {
-        const message = JSON.parse(body.Message);
-        const event = JSON.parse(message.Records[0].Sns.Message);
-        if (gatherers.hasOwnProperty(event.sender.targetId)) gatherers[event.sender.targetId](event);
-    }
+            });
+    };
 
     /**
      * Create a response handler for an AWS lambda function that will respond to
@@ -166,7 +108,7 @@ module.exports = function (sns, configuration) {
      * @param {function} handler A function to call to accept an event and produce an event.
      * @returns {Function}
      */
-    function responseHandler(handler) {
+    factory.response = function(handler) {
         return function(event, context, callback) {
 
             // validate event structure
@@ -205,54 +147,43 @@ module.exports = function (sns, configuration) {
                 }
             });
         }
+    };
+
+    return factory;
+
+
+    /**
+     * Accept a notification body and process it.
+     * @param {object} body
+     */
+    function notificationHandler(body) {
+        const message = JSON.parse(body.Message);
+        const event = JSON.parse(message.Records[0].Sns.Message);
+        if (gatherers.hasOwnProperty(event.sender.targetId)) gatherers[event.sender.targetId](event);
     }
 
     /**
-     * Send a scattered request along the configured AWS SNS topic.
-     * @param {*} event The event data to send with the request.
-     * @param {object} configuration The gather configuration.
-     * @returns {Promise<object>}
+     * Start a server that will subscribe to the AWS SNS Topic.
+     * @returns {Promise<function>} resolves to a the close function.
      */
-    function scatterGather(event, configuration) {
-        return new Promise(function(resolve, reject) {
-
-            // get unique id
-            const id = getUniqueId();
-
-            // build and store the gatherer
-            const gatherer = defineGatherer(configuration);
-            gatherers[id] = gatherer;
-
-            // create publish event parameters
-            const publishParams = {
-                Message: JSON.stringify({
-                    error: null,
-                    data: event,
-                    sender: {
-                        name: config.name,
-                        responseId: id,
-                        targetId: null,
-                        version: config.version
-                    }
-                }),
-                TopicArn: config.topicArn
-            };
-
-            // publish the event
-            sns.publish(publishParams, function(err) {
-                if (err) reject(err);
-            });
-
-            // use the response from the gatherer's promise to resolve or reject this promise
-            gatherer.promise
-                .then(function(result) {
-                    delete gatherers[id];
-                    result.complete = result.missing.length === 0;
-                    resolve(result);
-                }, reject);
-        });
+    function startServer() {
+        if (!serverPromise) {
+            serverPromise = Server(sns, config, notificationHandler)
+                .then(function (app) {
+                    return function () {
+                        return new Promise(function (resolve, reject) {
+                            app.server.close(function (err) {
+                                if (err) return reject(err);
+                                serverPromise = null;
+                                resolve();
+                            })
+                        });
+                    };
+                });
+        }
+        return serverPromise;
     }
-};
+}
 
 /**
  * Attempt to parse a JSON string and return it, or null.

@@ -24,9 +24,9 @@ describe('scatter-gather', function() {
     const scatherConfig = { name: 'scatter', endpoint: 'http://localhost:11200', port: 11200, topicArn: 'math' };
     var scather;
     
-    beforeEach(Promise.coroutine(function *() {
-        scather = yield Scather(mocks.sns, scatherConfig);
-    }));
+    beforeEach(function() {
+        scather = Scather(mocks.sns, scatherConfig);
+    });
     
     afterEach(function() {
         mocks.reset();
