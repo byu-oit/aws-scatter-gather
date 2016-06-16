@@ -65,6 +65,7 @@ describe('scatter-gather', function() {
     });
 
     it('gathers one', function() {
+        const start = Date.now();
 
         mocks.lambda('increment', 'math', scather.response(function(event, context, callback) {
             callback(null, event + 1);
@@ -72,6 +73,7 @@ describe('scatter-gather', function() {
 
         return scather.request(5, { responses: ['increment'] })
             .then(function(data) {
+                expect(Date.now() - start).to.be.lessThan(3000);
                 expect(Array.isArray(data)).to.equal(true);
                 expect(data.complete).to.equal(true);
                 expect(data.length).to.equal(1);
@@ -85,6 +87,7 @@ describe('scatter-gather', function() {
     });
 
     it('gathers multiple', function() {
+        const start = Date.now();
 
         mocks.lambda('increment', 'math', scather.response(function(event, context, callback) {
             callback(null, event + 1);
@@ -96,6 +99,7 @@ describe('scatter-gather', function() {
 
         return scather.request(5, { responses: ['increment', 'double'] })
             .then(function(data) {
+                expect(Date.now() - start).to.be.lessThan(3000);
                 expect(Array.isArray(data)).to.equal(true);
                 expect(data.complete).to.equal(true);
                 expect(data.length).to.equal(2);
@@ -108,6 +112,7 @@ describe('scatter-gather', function() {
     });
 
     it('gather open ended', function() {
+        const start = Date.now();
 
         mocks.lambda('increment', 'math', scather.response(function(event, context, callback) {
             callback(null, event + 1);
@@ -119,6 +124,8 @@ describe('scatter-gather', function() {
 
         return scather.request(5, { minWait: 1000 })
             .then(function(data) {
+                expect(Date.now() - start).to.be.greaterThan(999);
+                expect(Date.now() - start).to.be.lessThan(3000);
                 expect(data.complete).to.equal(true);
                 expect(data.length).to.equal(2);
                 expect(data.missing.length).to.equal(0);
@@ -129,7 +136,8 @@ describe('scatter-gather', function() {
             });
     });
 
-    it.only('gather incomplete', function(done) {
+    it('gather incomplete', function(done) {
+        const start = Date.now();
         var requestCompleted = false;
 
         mocks.lambda('increment', 'math', scather.response(function(event, context, callback) {
@@ -139,6 +147,7 @@ describe('scatter-gather', function() {
         mocks.lambda('double', 'math', scather.response(function(event, context, callback) {
             setTimeout(function() {
                 callback(null, event * 2);
+                expect(Date.now() - start).to.be.greaterThan(1499);
                 expect(requestCompleted).to.equal(true);
                 done();
             }, 1500);
@@ -147,6 +156,7 @@ describe('scatter-gather', function() {
         scather.request(5, { maxWait: 1000, responses: ['increment', 'double'] })
             .then(function(data) {
                 requestCompleted = true;
+                expect(Date.now() - start).to.be.greaterThan(999);
                 expect(data.complete).to.equal(false);
                 expect(data.length).to.equal(1);
                 expect(data.missing.length).to.equal(1);
