@@ -139,7 +139,8 @@ function Scather (sns, configuration) {
                                 };
                                 sns.publish(params, function(err, data) {
                                     if (err) return callback(err);
-                                    return callback(null, result);
+                                    if (result.error) return callback(result.error);
+                                    return callback(null, result.response);
                                 });
                             });
                         }
