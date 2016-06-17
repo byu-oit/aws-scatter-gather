@@ -17,6 +17,7 @@
 'use strict';
 const defer         = require('./defer');
 const getGatherer   = require('./gatherer');
+const Logger        = require('./logger');
 const machineId     = require('./machine-id');
 const Promise       = require('bluebird');
 const Server        = require('./server');
@@ -37,6 +38,7 @@ function Scather (sns, configuration) {
 
     // build the normalized configuration
     const defaults = {
+        log: false,
         name: '',
         port: 11200,
         endpoint: '',
@@ -44,6 +46,10 @@ function Scather (sns, configuration) {
         version: '1.0'
     };
     const config = Object.assign(defaults, configuration);
+
+    // create the logger and add it to the config object
+    const logger = Logger(config.log);
+    config.logger = logger;
 
     /**
      * If the server is running then end it.
@@ -61,6 +67,9 @@ function Scather (sns, configuration) {
      * @returns {Promise<object>}
      */
     factory.request = function (event, configuration) {
+        const id = uuid();
+        logger.log('Request initiated: ' + id);
+
         return startServer()
             .then(function() {
                 return new Promise(function(resolve, reject) {
@@ -89,7 +98,12 @@ function Scather (sns, configuration) {
 
                     // publish the event
                     sns.publish(publishParams, function(err) {
-                        if (err) reject(err);
+                        if (err) {
+                            logger.log('Request ' + id + ' failed to publish event.');
+                            reject(err);
+                        } else {
+                            logger.log('Request ' + id + ' published event.');
+                        }
                     });
 
                     // use the response from the gatherer's promise to resolve or reject this promise
@@ -98,7 +112,11 @@ function Scather (sns, configuration) {
                             delete gatherers[id];
                             result.complete = result.missing.length === 0;
                             resolve(result);
-                        }, reject);
+                            logger.log('Request ' + id + ' successfully completed.');
+                        }, function(err) {
+                            reject(err);
+                            logger.log('Request ' + id + ' failed to complete');
+                        });
                 });
             });
     };
@@ -119,24 +137,27 @@ function Scather (sns, configuration) {
 
         return function(event, context, callback) {
             const promises = [];
-
-            console.log('Original event', event);
+            const id = uuid();
+            
+            logger.log('Response initiated: ' + id);
+            loger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
             // validate event structure
             if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
             if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
             if (event.Records.length === 0) return callback(null, null);
 
-            event.Records.forEach(function(record) {
+            event.Records.forEach(function(record, recordIndex) {
                 if (record.hasOwnProperty('Sns')) {
                     const message = parseIfJson(record.Sns.Message);
                     if (message && typeof message === 'object' && message.sender && typeof message.sender === 'object') {
                         const sender = message.sender;
                         if (!sender.targetId && sender.responseId) {     // replies wait for responses
+                            logger.log('Response ' + id + ' handling record #' + recordIndex);
                             const deferred = defer();
                             promises.push(deferred.promise);
-                            console.log('Handling');
                             handler(message.data, sender, function(err, response) {
+                                logger.log('Response ' + id + ' handled record #' + recordIndex);
                                 const result = {
                                     error: err,
                                     data: response,
@@ -163,7 +184,14 @@ function Scather (sns, configuration) {
             });
 
             // call the callback
-            Promise.all(promises).then(results => callback(null, results), err => callback(err, null));
+            Promise.all(promises)
+                .then(results => {
+                    logger.log('Response ' + id + ' successfully completed');
+                    callback(null, results);
+                }, err => {
+                    logger.log('Response ' + id + ' failed to complete');
+                    callback(err, null)
+                });
         }
     };
 
