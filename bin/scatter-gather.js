@@ -105,10 +105,16 @@ function Scather (sns, configuration) {
     /**
      * Create a response handler for an AWS lambda function that will respond to
      * a scattered request.
+     * @param {object} [configuration] An optional configuration for the response.
      * @param {function} handler A function to call to accept an event and produce an event.
      * @returns {Function}
      */
-    factory.response = function(handler) {
+    factory.response = function(configuration, handler) {
+        if (typeof configuration === 'function') {
+            handler = arguments[0];
+            configuration = {};
+        }
+
         return function(event, context, callback) {
 
             // validate event structure
@@ -127,10 +133,10 @@ function Scather (sns, configuration) {
                                     error: err,
                                     data: response,
                                     sender: {
-                                        name: config.name || context.functionName || '',
+                                        name: configuration.name || context.functionName || '',
                                         responseId: null,
                                         targetId: sender.responseId,
-                                        version: config.version
+                                        version: configuration.version || config.version
                                     }
                                 };
                                 const params = {
