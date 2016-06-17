@@ -21,7 +21,7 @@ const express       = require('express');
 /**
  * Start a new server.
  * @param {object} sns The AWS Sns instance.
- * @param {number} port The port number to start the server on.
+ * @param {object} config The server configuration.
  * @param {function} callback A function to call with each request object.
  * @returns {Promise<Server>}
  */
@@ -55,18 +55,18 @@ module.exports = function(sns, config, callback) {
                 
                 // forward notification to the callback
                 case 'Notification':
-                    console.log('--------------------');
-                    console.log(req.body);
+                    config.logger.log('Received Notification: ' + JSON.stringify(req.body, null, 2));
                     callback(req.body);
                     break;
                 
                 // confirm subscription to the topic
                 case 'SubscriptionConfirmation':
+                    config.logger.log('Received SubscriptionConfirmation: ' + JSON.stringify(req.body, null, 2));
                     const params = {
                         Token: req.body.Token,
                         TopicArn: req.body.TopicArn
                     };
-                    sns.confirmSubscription(params, function(err, data) {
+                    sns.confirmSubscription(params, function(err) {
                         if (err) return reject(err);
                         resolve(app);
                     });
@@ -91,7 +91,7 @@ module.exports = function(sns, config, callback) {
                 TopicArn: config.topicArn,
                 Endpoint: config.endpoint
             };
-            sns.subscribe(params, function(err, data) {
+            sns.subscribe(params, function(err) {
                 if (err) return reject(err);
             });
         });
