@@ -3,9 +3,6 @@
   "version": "0.0.2",
   "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS.",
   "main": "index.js",
-  "bin": {
-    "aws-scatter-gather": "scatter-gather.js"
-  },
   "scripts": {
     "test": "mocha tests/*.js"
   },
