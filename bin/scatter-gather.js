@@ -15,6 +15,7 @@
  *    limitations under the License.
  **/
 'use strict';
+const defer         = require('./defer');
 const getGatherer   = require('./gatherer');
 const machineId     = require('./machine-id');
 const Promise       = require('bluebird');
