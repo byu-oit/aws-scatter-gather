@@ -63,7 +63,9 @@ const scather = Scather(sns);
 
 // define the SNS post handler
 exports.handler = scather.response(function(event, context, callback) {
-    callback(null, 'Hello, World!');    // post 'Hello, World!' event as a response
+    // post 'Hello, World!' event as a response and provide
+    // it as a response to the lambda being called.
+    callback(null, 'Hello, World!');
 });
 ```
 
@@ -80,6 +82,7 @@ The essential event structure contains:
 To create a scather instance you'll need to provide a configuration. These are the options:
 
 - **endpoint** - The public URL to use to publish events to for the gatherer. Only required if you are gathering.
+- **log** - A boolean that if true will indicate that scather logs should be output to the console. Defaults to `false`.
 - **name** - A name to attach to events as the sender's name.
 - **port** - A port to start the subscribed server on. Only required if you are gathering. Defaults to `11200`.
 - **topicArn** - The AWS Topic ARN to publish to and subscribe to.
@@ -89,14 +92,14 @@ To create a scather instance you'll need to provide a configuration. These are t
 
 Post an event to an AWS SNS Topic and subscribe to the same SNS topic for events that are specifically responses to this request.
 
-### request ( sns, config ) : Promise
+### request ( sns [, config ] ) : Promise
 
 **[Usage Example](#scatter-gather-code)**
 
 **Parameters**
 
 - **sns** - An AWS SNS instance.
-- **config** - A request configuration, including:
+- **config** - An optional request configuration, including:
     - **maxWait** - The maximum number of milliseconds to gather responses for.
     - **minWait** - The minimum number of milliseconds to gather responses for.
     - **responses** - An array of strings where each string is the name of a responder that you are expecting a response from. As soon as all responses are gathered then then request will be considered completed, unless it happened faster than the *minWait* duration.
@@ -117,10 +120,15 @@ Handle scather requests and provide a directed response event through AWS SNS.
 
 Lambda functions can subscribe to the AWS SNS topic. The response is a function wrapper around the standard lambda handler. Within the callback function you add your logic and then call the callback with an error or data. Errors or data will be sent back to the gatherer and the lambda function will also get whatever value you pass in to the callback.
 
-```js
-exports.handler = scather.response(function(event, context, callback) {
-    // post 'Hello, World!' event as a response and provide
-    // it as a response to the lambda being called.
-    callback(null, 'Hello, World!');
-});
-```
+### response ( [ config, ] handler ) : Function
+
+**[Usage Example](#aws-lambda-code)**
+
+**Parameters**
+
+- **config** - An optional response configuration, including:
+    - **name** - The response name. If this response handler is for a lambda then by default the name will be the same as the lambda function.
+    - **version** - The response version.
+- **handler** - A function that takes 3 parameters: 1) event, 2) context, 3) callback. The callback must be called when the handler has completed.
+
+**Returns** a function that the lambda function should execute.
