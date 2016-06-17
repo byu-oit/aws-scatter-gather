@@ -140,7 +140,7 @@ function Scather (sns, configuration) {
             const id = uuid();
             
             logger.log('Response initiated: ' + id);
-            loger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
+            logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
             // validate event structure
             if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
