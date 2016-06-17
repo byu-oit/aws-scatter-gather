@@ -110,12 +110,14 @@ function Scather (sns, configuration) {
      * @returns {Function}
      */
     factory.response = function(configuration, handler) {
+
         if (typeof configuration === 'function') {
             handler = arguments[0];
             configuration = {};
         }
 
         return function(event, context, callback) {
+            const promises = [];
 
             // validate event structure
             if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
@@ -128,6 +130,8 @@ function Scather (sns, configuration) {
                     if (message && typeof message === 'object' && message.sender && typeof message.sender === 'object') {
                         const sender = message.sender;
                         if (!sender.targetId && sender.responseId) {     // replies wait for responses
+                            const deferred = defer();
+                            promises.push(deferred.promise);
                             handler(message.data, sender, function(err, response) {
                                 const result = {
                                     error: err,
@@ -144,15 +148,18 @@ function Scather (sns, configuration) {
                                     TopicArn: record.Sns.TopicArn
                                 };
                                 sns.publish(params, function(err) {
-                                    if (err) return callback(err);
-                                    if (result.error) return callback(result.error);
-                                    return callback(null, result.response);
+                                    if (err) return deferred.reject(err);
+                                    if (result.error) return deferred.reject(result.error);
+                                    return deferred.resolve(result.data);
                                 });
                             });
                         }
                     }
                 }
             });
+
+            // call the callback
+            Promise.all(promises).then(results => callback(null, results), err => callback(err, null));
         }
     };
 
