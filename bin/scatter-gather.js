@@ -119,6 +119,8 @@ function Scather (sns, configuration) {
         return function(event, context, callback) {
             const promises = [];
 
+            console.log('Original event', event);
+
             // validate event structure
             if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
             if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
@@ -132,6 +134,7 @@ function Scather (sns, configuration) {
                         if (!sender.targetId && sender.responseId) {     // replies wait for responses
                             const deferred = defer();
                             promises.push(deferred.promise);
+                            console.log('Handling');
                             handler(message.data, sender, function(err, response) {
                                 const result = {
                                     error: err,
