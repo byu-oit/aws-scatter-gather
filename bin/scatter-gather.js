@@ -203,8 +203,7 @@ function Scather (sns, configuration) {
      * @param {object} body
      */
     function notificationHandler(body) {
-        const message = JSON.parse(body.Message);
-        const event = JSON.parse(message.Records[0].Sns.Message);
+        const event = JSON.parse(body.Message);
         if (gatherers.hasOwnProperty(event.sender.targetId)) gatherers[event.sender.targetId](event);
     }
 
