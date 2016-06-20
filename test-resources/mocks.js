@@ -15,7 +15,6 @@
  *    limitations under the License.
  **/
 'use strict';
-const Promise           = require('bluebird');
 const Request           = require('request');
 const uuid              = require('uuid');
 
@@ -24,10 +23,9 @@ const unconfirmed = {};
 
 /**
  * Call the specified callback function as if it were called by a lambda.
- * @param {string} lambdaName
- * @param {string} topicArnName
- * @param {*} event
- * @param {function} callback
+ * @param {string} name
+ * @param {string} topicArn
+ * @param {function} fnLambda
  * @returns {Promise}
  */
 exports.lambda = function(name, topicArn, fnLambda) {
@@ -44,9 +42,7 @@ exports.lambda = function(name, topicArn, fnLambda) {
     };
 
     addSubscription(topicArn, function(event) {
-        fnLambda(event, Object.assign({}, context), function(err, data) {
-            return;
-        });
+        fnLambda(event, Object.assign({}, context), function(err, data) {});
     });
 };
 
@@ -68,7 +64,7 @@ exports.sns = {
         }
     },
 
-    publish: function(params, callback) {
+    publish: function(params) {
         const event = {
             Records: [
                 {
@@ -133,9 +129,7 @@ exports.sns = {
                 },
                 json: true
             };
-            Request(config, function(err, response, body) {
-                return;
-            });
+            Request(config, function() {});
         };
         unconfirmed[token].TopicArn = params.TopicArn;
 
