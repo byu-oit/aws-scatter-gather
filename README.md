@@ -6,8 +6,6 @@ FYI: You can call this **Scather** (for short) because aws-scatter-gather is a m
 
 Give Scather an event (this can by any data type) and Scather will post the event to an AWS SNS topic. Any subscribers to the SNS topic will receive the event and should use Scather to decode it and to post a response event back to the same SNS topic. Scather will gather the responses and produce a final result.
 
-### Consider this code unstable for now - changes are going to occur before a stable release
-
 ## Install
 
 ```sh
@@ -90,15 +88,15 @@ To create a scather instance you'll need to provide a configuration. These are t
 
 ## Request
 
-Post an event to an AWS SNS Topic and subscribe to the same SNS topic for events that are specifically responses to this request.
+### request ( event [, config ] ) : Promise
 
-### request ( sns [, config ] ) : Promise
+Post an event to an AWS SNS Topic and subscribe to the same SNS topic for events that are specifically responses to this request.
 
 **[Usage Example](#scatter-gather-code)**
 
 **Parameters**
 
-- **sns** - An AWS SNS instance.
+- **event** - The event data to publish.
 - **config** - An optional request configuration, including:
     - **maxWait** - The maximum number of milliseconds to gather responses for.
     - **minWait** - The minimum number of milliseconds to gather responses for.
@@ -114,13 +112,23 @@ Post an event to an AWS SNS Topic and subscribe to the same SNS topic for events
 - **expected.map** - A map of response names to their [event](#event-structure) that were expected.
 - **missing** - An array of names for responses that were expected that did not arrive.
 
+### end ( ) : Promise
+
+If a request has been made then a server was also set up to gather AWS SNS response events. Calling this command will terminate the server. If a request is made and the server is not running then it will be started.
+
+**Parameters**
+
+None
+
+**Returns** a promise that resolves once the server has been shut down.
+
 ## Response
+
+### response ( [ config, ] handler ) : Function
 
 Handle scather requests and provide a directed response event through AWS SNS.
 
 Lambda functions can subscribe to the AWS SNS topic. The response is a function wrapper around the standard lambda handler. Within the callback function you add your logic and then call the callback with an error or data. Errors or data will be sent back to the gatherer and the lambda function will also get whatever value you pass in to the callback.
-
-### response ( [ config, ] handler ) : Function
 
 **[Usage Example](#aws-lambda-code)**
 
