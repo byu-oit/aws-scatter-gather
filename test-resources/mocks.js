@@ -128,7 +128,7 @@ exports.sns = {
                     MessageId: uuid(),
                     Token: uuid(),
                     TopicArn: params.topicArn,
-                    Message: JSON.stringify(event),
+                    Message: event.Records[0].Sns.Message,
                     Timestamp: new Date().toISOString()
                 },
                 json: true
