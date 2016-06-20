@@ -1,6 +1,6 @@
 {
   "name": "aws-scatter-gather",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS.",
   "main": "index.js",
   "scripts": {
