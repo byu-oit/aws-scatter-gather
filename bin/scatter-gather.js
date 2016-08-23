@@ -144,11 +144,11 @@ function Scather (sns, configuration) {
             logger.log('Response initiated: ' + id);
             logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
-            // if the event does not conform to SNS structure then use default handler
-            if (!event || typeof event !== 'object' || !event.hasOwnProperty('Records') || !Array.isArray(event.Records) || !configuration.simpleSnsData) {
-                logger.log('Event is not SNS Topic event');
-                return handler(event, context, callback);
-            }
+            // validate the event
+            if (!event || typeof event !== 'object') return callback('Event must be an object.');
+            if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
+            if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
+            if (event.Records.length === 0) return callback(null, null);
 
             // if there are no records then call the callback now
             if (event.Records.length === 0) return callback(null, null);
