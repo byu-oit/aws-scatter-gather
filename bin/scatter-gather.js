@@ -148,8 +148,7 @@ function Scather (sns, configuration) {
             if (configuration.requireSnsEvent) {
                 if (!event || typeof event !== 'object') return callback('Event must be an object.');
                 if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
-                if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
-                if (event.Records.length === 0) return callback(null, null);
+                if (!Array.isArray(event.Records) || event.Records.length !== 1) return callback(Error('Event.Records expected Array of length 1. Received: ' + event.Records));
             } else {
                 return handler(event, context, callback);
             }
@@ -169,7 +168,7 @@ function Scather (sns, configuration) {
                                     error: err,
                                     data: response,
                                     sender: {
-                                        name: configuration.name || context.functionName || '',
+                                        name: configuration.name || (context && context.functionName) || '',
                                         responseId: null,
                                         targetId: sender.responseId,
                                         version: configuration.version || config.version
@@ -179,7 +178,7 @@ function Scather (sns, configuration) {
                                     Message: JSON.stringify(result),
                                     TopicArn: record.Sns.TopicArn
                                 };
-                                if (!record.Sns.mock) {
+                                if (!message.mock) {
                                     sns.publish(params, function(err) {
                                         if (err) return deferred.reject(err);
                                         if (result.error) return deferred.reject(result.error);
@@ -199,7 +198,7 @@ function Scather (sns, configuration) {
             Promise.all(promises)
                 .then(results => {
                     logger.log('Response ' + id + ' successfully completed');
-                    callback(null, results);
+                    callback(null, results[0]);
                 }, err => {
                     logger.log('Response ' + id + ' failed to complete');
                     callback(err, null)
@@ -263,7 +262,7 @@ Scather.mock.event = function(data) {
             sender: {
                 name: '-',
                 responseId: '-',
-                targetId: '-',
+                targetId: '',
                 version: '0.0'
             }
         };
