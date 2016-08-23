@@ -132,9 +132,7 @@ function Scather (sns, configuration) {
 
         if (typeof configuration === 'function') {
             handler = arguments[0];
-            configuration = {
-                requireSnsEvent: true
-            };
+            configuration = {};
         }
 
         return function(event, context, callback) {
@@ -145,13 +143,9 @@ function Scather (sns, configuration) {
             logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
             // validate the event
-            if (configuration.requireSnsEvent) {
-                if (!event || typeof event !== 'object') return callback('Event must be an object.');
-                if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
-                if (!Array.isArray(event.Records) || event.Records.length !== 1) return callback(Error('Event.Records expected Array of length 1. Received: ' + event.Records));
-            } else {
-                return handler(event, context, callback);
-            }
+            if (!event || typeof event !== 'object') return callback('Event must be an object.');
+            if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
+            if (!Array.isArray(event.Records) || event.Records.length !== 1) return callback(Error('Event.Records expected Array of length 1. Received: ' + event.Records));
 
             event.Records.forEach(function(record, recordIndex) {
                 if (record.hasOwnProperty('Sns')) {
