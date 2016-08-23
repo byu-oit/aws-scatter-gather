@@ -35,7 +35,7 @@ const scather = Scather(sns, {
 const reqConfig = {
     maxWait: 3000,
     minWait: 0,
-    responses: ['increment', 'double']
+    responses: ['increment']
 };
 
 // make a request by publishing an event and listening for
@@ -46,9 +46,11 @@ scather.request(5, reqConfig)
     });
 ```
 
-##### AWS Lambda Code
+##### Accept Scather Request Only, AWS Lambda Code
 
-This lambda is subscribed to the topic that Scather is publishing events to.
+If you are writing a Lambda function that should respond only to scather requests then you'd write it like this. All other events will produce an error that the lambda function never sees.
+
+The name of the lambda is *increment*, corresponding to the expected response by the scather requester.
 
 ```js
 // require libraries
@@ -61,9 +63,7 @@ const scather = Scather(sns);
 
 // define the SNS post handler
 exports.handler = scather.response(function(event, context, callback) {
-    // post 'Hello, World!' event as a response and provide
-    // it as a response to the lambda being called.
-    callback(null, 'Hello, World!');
+    callback(null, event + 1);
 });
 ```
 
