@@ -16,6 +16,7 @@
  **/
 'use strict';
 const expect        = require('chai').expect;
+const lambda        = require('./../test-resources/lambda');
 const mocks         = require('./../test-resources/mocks');
 const Promise       = require('bluebird');
 const Scather       = require('../index');
@@ -164,6 +165,29 @@ describe('scatter-gather', function() {
                 expect(data.expected.list.length).to.equal(1);
                 expect(data.map.increment.data).to.equal(6);
             });
+    });
+    
+    describe('non-sns events', function() {
+        
+        it('API Gateway Authorizer', function(done) {
+            var data = {
+                "authorizationToken": "incoming-client-token",
+                "methodArn": "arn:aws:execute-api:[region]:[account_id]:[restApiId]/[stage]/[method]/[resourcePath]",
+                "type": "TOKEN"
+            };
+            lambda.increment(data, null, function(err, data) {
+                expect(err).to.be.instanceof(Error);
+                done();
+            });
+        });
+    });
+
+    it('mocked event', function(done) {
+        var event = Scather.mock.event(25);
+        lambda.increment(event, null, function(err, data) {
+            expect(data).to.equal(26);
+            done();
+        });
     });
 
 });
