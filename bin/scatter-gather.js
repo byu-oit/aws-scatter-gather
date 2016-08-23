@@ -184,6 +184,8 @@ function Scather (sns, configuration) {
                                 }
                             });
                         }
+                    } else {
+                        promises.push(Promise.reject(Error('Invalid scather request body')));
                     }
                 }
             });
