@@ -136,69 +136,49 @@ function Scather (sns, configuration) {
         }
 
         return function(event, context, callback) {
-            const promises = [];
             const id = uuid();
             
             logger.log('Response initiated: ' + id);
             logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
-            // validate the event
-            if (!event || typeof event !== 'object') return callback('Event must be an object.');
-            if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
-            if (!Array.isArray(event.Records) || event.Records.length !== 1) return callback(Error('Event.Records expected Array of length 1. Received: ' + event.Records));
+            // validate the event and get it's message object
+            const validResult = validateRequesterEvent(event);
+            if (typeof validResult === 'string') return callback(Error(validResult));
 
-            event.Records.forEach(function(record, recordIndex) {
-                if (record.hasOwnProperty('Sns')) {
-                    const message = parseIfJson(record.Sns.Message);
-                    if (message && typeof message === 'object' && message.sender && typeof message.sender === 'object') {
-                        const sender = message.sender;
-                        if (!sender.targetId && sender.responseId) {     // replies wait for responses
-                            logger.log('Response ' + id + ' handling record #' + recordIndex);
-                            const deferred = defer();
-                            promises.push(deferred.promise);
-                            handler(message.data, sender, function(err, response) {
-                                logger.log('Response ' + id + ' handled record #' + recordIndex);
-                                const result = {
-                                    error: err,
-                                    data: response,
-                                    sender: {
-                                        name: configuration.name || (context && context.functionName) || '',
-                                        responseId: null,
-                                        targetId: sender.responseId,
-                                        version: configuration.version || config.version
-                                    }
-                                };
-                                const params = {
-                                    Message: JSON.stringify(result),
-                                    TopicArn: record.Sns.TopicArn
-                                };
-                                if (!message.mock) {
-                                    sns.publish(params, function(err) {
-                                        if (err) return deferred.reject(err);
-                                        if (result.error) return deferred.reject(result.error);
-                                        return deferred.resolve(result.data);
-                                    });
-                                } else {
-                                    if (result.error) return deferred.reject(result.error);
-                                    return deferred.resolve(result.data);
-                                }
-                            });
-                        }
-                    } else {
-                        promises.push(Promise.reject(Error('Invalid scather request body')));
+            // set some constants
+            const record = validResult.record;
+            const message = validResult.message;
+            const sender = message.sender;
+
+            logger.log('Response ' + id + ' handling record');
+
+            handler(message.data, sender, function(err, response) {
+                logger.log('Response ' + id + ' handled record');
+                const result = {
+                    error: err,
+                    data: response,
+                    sender: {
+                        name: configuration.name || (context && context.functionName) || '',
+                        responseId: null,
+                        targetId: sender.responseId,
+                        version: configuration.version || config.version
                     }
+                };
+                const params = {
+                    Message: JSON.stringify(result),
+                    TopicArn: record.Sns.TopicArn
+                };
+                if (!message.mock) {
+                    sns.publish(params, function(err) {
+                        if (err) return callback(err);
+                        if (result.error) return callback(result.error);
+                        return callback(null, result.data);
+                    });
+                } else {
+                    if (result.error) return callback(result.error);
+                    return callback(null, result.data);
                 }
             });
-
-            // call the callback
-            Promise.all(promises)
-                .then(results => {
-                    logger.log('Response ' + id + ' successfully completed');
-                    callback(null, results[0]);
-                }, err => {
-                    logger.log('Response ' + id + ' failed to complete');
-                    callback(err, null)
-                });
         }
     };
 
@@ -236,6 +216,16 @@ function Scather (sns, configuration) {
         return serverPromise;
     }
 }
+
+/**
+ * Determine if an event is a valid request event.
+ * @param {object} event
+ * @returns {boolean}
+ */
+Scather.isRequestEvent = function(event) {
+    const result = validateRequesterEvent(event);
+    return typeof result === 'object';
+};
 
 Scather.mock = {};
 
@@ -282,4 +272,34 @@ function parseIfJson(data) {
     } catch (e) {
         return null;
     }
+}
+
+/**
+ * Check to see if an event object is an aws-scatter-gather request event.
+ * @param event
+ * @returns {string, object}
+ */
+function validateRequesterEvent(event) {
+
+    // validate the event
+    if (!event || typeof event !== 'object') return 'Event must be an object';
+    if (!event.hasOwnProperty('Records')) return 'Event missing required property: Records';
+    if (!Array.isArray(event.Records) || event.Records.length !== 1) return 'Event.Records expected Array of length 1. Received: ' + event.Records;
+
+    const record = event.Records[0];
+    if (!record.hasOwnProperty('Sns') || !record.Sns || typeof record.Sns !== 'object') return 'Invalid value for event.Records[0].Sns';
+
+    const message = parseIfJson(record.Sns.Message);
+    if (!message || typeof message !== 'object' ||
+        !message.hasOwnProperty('sender') ||
+        !message.sender ||
+        typeof message.sender !== 'object') return 'Invalid aws-scatter-gather event message';
+
+    const sender = message.sender;
+    if (sender.targetId || !sender.responseId) return 'Not an aws-scatter-gather requester event';
+
+    return {
+        record: record,
+        message: message
+    };
 }
