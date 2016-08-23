@@ -132,7 +132,9 @@ function Scather (sns, configuration) {
 
         if (typeof configuration === 'function') {
             handler = arguments[0];
-            configuration = {};
+            configuration = {
+                simpleSnsData: true
+            };
         }
 
         return function(event, context, callback) {
@@ -142,9 +144,13 @@ function Scather (sns, configuration) {
             logger.log('Response initiated: ' + id);
             logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
-            // validate event structure
-            if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
-            if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
+            // if the event does not conform to SNS structure then use default handler
+            if (!event || typeof event !== 'object' || !event.hasOwnProperty('Records') || !Array.isArray(event.Records) || !configuration.simpleSnsData) {
+                logger.log('Event is not SNS Topic event');
+                return handler(event, context, callback);
+            }
+
+            // if there are no records then call the callback now
             if (event.Records.length === 0) return callback(null, null);
 
             event.Records.forEach(function(record, recordIndex) {
@@ -172,11 +178,16 @@ function Scather (sns, configuration) {
                                     Message: JSON.stringify(result),
                                     TopicArn: record.Sns.TopicArn
                                 };
-                                sns.publish(params, function(err) {
-                                    if (err) return deferred.reject(err);
+                                if (!record.Sns.mock) {
+                                    sns.publish(params, function(err) {
+                                        if (err) return deferred.reject(err);
+                                        if (result.error) return deferred.reject(result.error);
+                                        return deferred.resolve(result.data);
+                                    });
+                                } else {
                                     if (result.error) return deferred.reject(result.error);
                                     return deferred.resolve(result.data);
-                                });
+                                }
                             });
                         }
                     }
@@ -229,6 +240,40 @@ function Scather (sns, configuration) {
         return serverPromise;
     }
 }
+
+Scather.util = {};
+
+/**
+ * Generate an event that looks enough like an SNS Topic event that the scatherer will process it.
+ * @param {*} data The data to add to the event.
+ * @returns {object}
+ */
+Scather.util.event = function(data) {
+    const event = {
+        Records: []
+    };
+    var i;
+    var message;
+    for (i = 0; i < arguments.length; i++) {
+        message = {
+            error: null,
+            data: arguments[i],
+            mock: true,
+            sender: {
+                name: '-',
+                responseId: '-',
+                targetId: '-',
+                version: '0.0'
+            }
+        };
+        event.Records.push({
+            Sns: {
+                Message: JSON.stringify(message)
+            }
+        });
+    }
+    return event;
+};
 
 /**
  * Attempt to parse a JSON string and return it, or null.
