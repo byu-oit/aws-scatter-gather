@@ -22,7 +22,11 @@ const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
 // create sns instance
-const sns = new AWS.SNS();
+const sns = new AWS.SNS({
+    params: {
+        TopicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
+    }
+});
 
 // create a scather instance
 const scather = Scather(sns, {
@@ -42,13 +46,15 @@ const reqConfig = {
 // events that are replies
 scather.request(5, reqConfig)
     .then(function(results) {
-        // ... process final results
+        if (results.map.hasOwnProperty('increment')) {
+            console.log('Incremented to: ' + results.map.increment);
+        }
     });
 ```
 
-##### Accept Scather Request Only, AWS Lambda Code
+##### AWS Lambda Code that Only Accepts Scatter Gather Request Events
 
-If you are writing a Lambda function that should respond only to scather requests then you'd write it like this. All other events will produce an error that the lambda function never sees.
+If you are writing a Lambda function that should only accept events from scather requests then you'd write it like this. All other events will produce an error that the lambda function never sees.
 
 The name of the lambda is *increment*, corresponding to the expected response by the scather requester.
 
@@ -65,6 +71,39 @@ const scather = Scather(sns);
 exports.handler = scather.response(function(event, context, callback) {
     callback(null, event + 1);
 });
+```
+
+##### AWS Lambda Code for Any Event Type
+
+If you don't know what type of events the lambda might receive then you can process the Scather events this way:
+
+```js
+// require libraries
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
+
+// define the lambda handler
+exports.handler = function(event, context, callback) {
+
+    // check if the event is a Scather request event
+    if (Scather.isRequestEvent(event)) {
+
+        // get instances
+        const sns = new AWS.SNS();
+        const scather = Scather(sns);
+
+        // create a scather response function
+        var fn = scather.response(function(event, context, callback) {
+            callback(null, event + 1);
+        });
+
+        // call the function
+        fn(event, context, callback);
+
+    } else {
+        // run other logic
+    }
+};
 ```
 
 ## Event Structure
@@ -86,7 +125,11 @@ To create a scather instance you'll need to provide a configuration. These are t
 - **topicArn** - The AWS Topic ARN to publish to and subscribe to.
 - **version** - An arbitrary value that helps to identify the version of the requester. Defaults to `"1.0"`.
 
-## Request
+## Scather Instance Methods
+
+### end ( ) : Promise
+
+If a request has been made then a server was also set up to gather AWS SNS response events. Calling this command will terminate the server. If a request is made and the server is not running then it will be started.
 
 ### request ( event [, config ] ) : Promise
 
@@ -112,17 +155,11 @@ Post an event to an AWS SNS Topic and subscribe to the same SNS topic for events
 - **expected.map** - A map of response names to their [event](#event-structure) that were expected.
 - **missing** - An array of names for responses that were expected that did not arrive.
 
-### end ( ) : Promise
-
-If a request has been made then a server was also set up to gather AWS SNS response events. Calling this command will terminate the server. If a request is made and the server is not running then it will be started.
-
 **Parameters**
 
 None
 
 **Returns** a promise that resolves once the server has been shut down.
-
-## Response
 
 ### response ( [ config, ] handler ) : Function
 
@@ -140,3 +177,58 @@ Lambda functions can subscribe to the AWS SNS topic. The response is a function 
 - **handler** - A function that takes 3 parameters: 1) event, 2) context, 3) callback. The callback must be called when the handler has completed.
 
 **Returns** a function that the lambda function should execute.
+
+## Scather Static Methods
+
+### isRequestEvent ( event ) : boolean
+
+Determine if an event looks like a scather request event.
+
+**Parameters**
+
+- **event** - The data to send in the event. Can be any type of data that can be serialized.
+
+**Returns** `true` if the event resembles a scather request event, otherwise `false`.
+
+**Usage Example**
+
+```js
+const Scather   = require('aws-scatter-gather');
+
+const result = Scather.isRequestEvent({});
+console.log(result);        // false
+```
+
+### mock.requestEvent ( data ) : undefined
+
+Create a mock request event that can be used against an AWS lambda function that expects scather events. Great for debugging lambdas before pushing them to AWS.
+
+**Parameters**
+
+- **data** - The data to send in the event. Can be any type of data that can be serialized.
+
+**Returns** undefined
+
+**Usage Example**
+
+```js
+// require libraries
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
+
+// get instances
+const sns = new AWS.SNS();
+const scather = Scather(sns);
+
+// define the SNS post handler
+exports.handler = scather.response(function(event, context, callback) {
+    callback(null, event + 1);
+});
+
+// create a scather event
+const event = Scather.mock.event(5);
+exports.handler(event, null, function(err, data) {
+    console.log(data);  // output is 6, from 5 + 1
+});
+
+```
