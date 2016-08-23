@@ -183,7 +183,7 @@ describe('scatter-gather', function() {
     });
 
     it('mocked event', function(done) {
-        var event = Scather.mock.event(25);
+        var event = Scather.mock.requestEvent(25);
         lambda.increment(event, null, function(err, data) {
             expect(data).to.equal(26);
             done();

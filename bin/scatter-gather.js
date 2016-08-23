@@ -234,7 +234,7 @@ Scather.mock = {};
  * @param {*} data The data to add to the event.
  * @returns {object}
  */
-Scather.mock.event = function(data) {
+Scather.mock.requestEvent = function(data) {
     const event = {
         Records: []
     };
