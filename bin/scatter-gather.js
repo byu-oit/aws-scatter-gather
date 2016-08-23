@@ -133,7 +133,7 @@ function Scather (sns, configuration) {
         if (typeof configuration === 'function') {
             handler = arguments[0];
             configuration = {
-                simpleSnsData: true
+                requireSnsEvent: true
             };
         }
 
@@ -145,13 +145,14 @@ function Scather (sns, configuration) {
             logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
 
             // validate the event
-            if (!event || typeof event !== 'object') return callback('Event must be an object.');
-            if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
-            if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
-            if (event.Records.length === 0) return callback(null, null);
-
-            // if there are no records then call the callback now
-            if (event.Records.length === 0) return callback(null, null);
+            if (configuration.requireSnsEvent) {
+                if (!event || typeof event !== 'object') return callback('Event must be an object.');
+                if (!event.hasOwnProperty('Records')) return callback(Error('Event missing required property: Records'));
+                if (!Array.isArray(event.Records)) return callback(Error('Event.Records expected Array. Received: ' + event.Records));
+                if (event.Records.length === 0) return callback(null, null);
+            } else {
+                return handler(event, context, callback);
+            }
 
             event.Records.forEach(function(record, recordIndex) {
                 if (record.hasOwnProperty('Sns')) {
@@ -241,14 +242,14 @@ function Scather (sns, configuration) {
     }
 }
 
-Scather.util = {};
+Scather.mock = {};
 
 /**
  * Generate an event that looks enough like an SNS Topic event that the scatherer will process it.
  * @param {*} data The data to add to the event.
  * @returns {object}
  */
-Scather.util.event = function(data) {
+Scather.mock.event = function(data) {
     const event = {
         Records: []
     };
