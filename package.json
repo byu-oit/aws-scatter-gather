@@ -30,12 +30,13 @@
     "bluebird": "^3.4.0",
     "body-parser": "^1.15.1",
     "express": "^4.13.4",
-    "hashids": "^1.0.2",
     "uuid": "^2.0.2"
   },
   "devDependencies": {
+    "aws-sdk": "^2.5.3",
     "chai": "^3.5.0",
     "mocha": "^2.5.3",
+    "ngrok": "^2.2.2",
     "request": "^2.72.0"
   }
 }
