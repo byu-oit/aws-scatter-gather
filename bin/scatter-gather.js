@@ -34,30 +34,45 @@ module.exports = Scather;
 function Scather (sns, configuration) {
     const factory = Object.create(Scather.prototype);
     const gatherers = {};
-    var serverPromise;
+    var subscriberPromise;
 
     // build the normalized configuration
     const defaults = {
         log: false,
         name: '',
-        port: 11200,
+        port: 0,
         endpoint: '',
         topicArn: '',
         version: '1.0'
     };
-    const config = Object.assign(defaults, configuration);
+    const config = Object.assign(defaults, configuration || {});
+
+    // if no topic arn was specified then use the topic arn from the sns
+    if (!defaults.topicArn && sns.config.params && sns.config.params.TopicArn) {
+        defaults.topicArn = sns.config.params.TopicArn;
+    }
 
     // create the logger and add it to the config object
     const logger = Logger(config.log);
-    config.logger = logger;
+
+    /**
+     * Get the configuration for this scather instance.
+     * @type {object}
+     */
+    Object.defineProperty(factory, 'config', {
+        configurable: false,
+        enumerable: true,
+        value: Object.freeze(Object.assign({}, config)),
+        writable: false
+    });
 
     /**
      * If the server is running then end it.
      * @returns {Promise<undefined>}
      */
     factory.end = function() {
-        if (!serverPromise) return Promise.resolve();
-        return serverPromise.then(end => end());
+        if (!subscriberPromise) return Promise.resolve();
+        return subscriberPromise.then(end => end());
     };
 
     /**
@@ -70,7 +85,7 @@ function Scather (sns, configuration) {
         const id = uuid();
         logger.log('Request initiated: ' + id);
 
-        return startServer()
+        return startSubscriber(logger)
             .then(function() {
                 return new Promise(function(resolve, reject) {
 
@@ -196,24 +211,31 @@ function Scather (sns, configuration) {
 
     /**
      * Start a server that will subscribe to the AWS SNS Topic.
+     * @param {object} logger The logger to use 
      * @returns {Promise<function>} resolves to a the close function.
      */
-    function startServer() {
-        if (!serverPromise) {
-            serverPromise = Server(sns, config, notificationHandler)
-                .then(function (app) {
-                    return function () {
-                        return new Promise(function (resolve, reject) {
-                            app.server.close(function (err) {
-                                if (err) return reject(err);
-                                serverPromise = null;
-                                resolve();
-                            })
-                        });
-                    };
-                });
+    function startSubscriber(logger) {
+        if (!subscriberPromise) {
+            
+            // endpoint provided, set up a server that subscribes to the topic
+            if (config.endpoint) {
+                subscriberPromise = Server(sns, config, logger, notificationHandler)
+                    .then(function (app) {
+                        return function () {
+                            return new Promise(function (resolve, reject) {
+                                app.server.close(function (err) {
+                                    if (err) return reject(err);
+                                    subscriberPromise = null;
+                                    resolve();
+                                })
+                            });
+                        };
+                    });
+            } else {
+                subscriberPromise = Promise.resolve();
+            }
         }
-        return serverPromise;
+        return subscriberPromise;
     }
 }
 
