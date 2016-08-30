@@ -48,7 +48,7 @@ function Scather (sns, configuration) {
     const config = Object.assign(defaults, configuration || {});
 
     // if no topic arn was specified then use the topic arn from the sns
-    if (!defaults.topicArn && sns.config.params && sns.config.params.TopicArn) {
+    if (!defaults.topicArn && sns.config && sns.config.params && sns.config.params.TopicArn) {
         defaults.topicArn = sns.config.params.TopicArn;
     }
 
