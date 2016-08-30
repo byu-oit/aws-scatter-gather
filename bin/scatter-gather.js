@@ -18,7 +18,6 @@
 const defer         = require('./defer');
 const getGatherer   = require('./gatherer');
 const Logger        = require('./logger');
-const machineId     = require('./machine-id');
 const Promise       = require('bluebird');
 const Server        = require('./server');
 const uuid          = require('uuid').v4;
@@ -88,9 +87,6 @@ function Scather (sns, configuration) {
         return startSubscriber(logger)
             .then(function() {
                 return new Promise(function(resolve, reject) {
-
-                    // get unique id
-                    const id = (config.name ? config.name + '-' : '') + machineId + '-' + uuid();
 
                     // build and store the gatherer
                     const gatherer = getGatherer(configuration);
