@@ -22,10 +22,11 @@ const express       = require('express');
  * Start a new server.
  * @param {object} sns The AWS Sns instance.
  * @param {object} config The server configuration.
+ * @param {object} logger The logger to use
  * @param {function} callback A function to call with each request object.
  * @returns {Promise<Server>}
  */
-module.exports = function(sns, config, callback) {
+module.exports = function(sns, config, logger, callback) {
     const protocol = /^(https?):/.exec(config.endpoint)[1];
 
     return new Promise(function(resolve, reject) {
@@ -55,13 +56,13 @@ module.exports = function(sns, config, callback) {
                 
                 // forward notification to the callback
                 case 'Notification':
-                    config.logger.log('Received Notification: ' + JSON.stringify(req.body, null, 2));
+                    logger.log('Received Notification: ' + JSON.stringify(req.body, null, 2));
                     callback(req.body);
                     break;
                 
                 // confirm subscription to the topic
                 case 'SubscriptionConfirmation':
-                    config.logger.log('Received SubscriptionConfirmation: ' + JSON.stringify(req.body, null, 2));
+                    logger.log('Received SubscriptionConfirmation: ' + JSON.stringify(req.body, null, 2));
                     const params = {
                         Token: req.body.Token,
                         TopicArn: req.body.TopicArn
