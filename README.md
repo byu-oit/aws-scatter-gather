@@ -12,9 +12,11 @@ Give Scather an event (this can by any data type) and Scather will post the even
 $ npm install aws-scatter-gather
 ```
 
-## Usage
+## Request Examples
 
-##### Scatter Gather Code
+The requester is the machine that originates the request. It also does the work of gathering the responses.
+
+##### Example 1: Requester Outside of AWS
 
 ```js
 // require libraries
@@ -31,8 +33,7 @@ const sns = new AWS.SNS({
 // create a scather instance
 const scather = Scather(sns, {
     port: 9000,
-    endpoint: 'http://public-endpoint.com',
-    topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
+    endpoint: 'http://public-endpoint.com'
 });
 
 // define the request configuration - how long to wait and what for
@@ -50,6 +51,43 @@ scather.request(5, reqConfig)
             console.log('Incremented to: ' + results.map.increment);
         }
     });
+```
+
+##### Example 2: Requester within AWS Lambda
+
+**Important:** You must subscribe this lambda to the topic of interest for this example to work.
+
+```js
+// require libraries
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
+
+// get instances
+const sns = new AWS.SNS();
+const scather = Scather(sns);
+
+exports.handler = function(event, context, callback) {
+    if (Scather.isRequestEvent(event)) {
+        callback(null, null);
+
+    } else {
+        // define the request configuration - how long to wait and what for
+        const reqConfig = {
+            maxWait: 3000,
+            minWait: 0,
+            responses: ['increment']
+        };
+
+        // make a request by publishing an event and listening for
+        // events that are replies
+        scather.request(5, reqConfig)
+            .then(function(results) {
+                if (results.map.hasOwnProperty('increment')) {
+                    console.log('Incremented to: ' + results.map.increment);
+                }
+            });
+    }
+};
 ```
 
 ##### AWS Lambda Code that Only Accepts Scatter Gather Request Events
