@@ -27,7 +27,10 @@ const express       = require('express');
  * @returns {Promise<Server>}
  */
 module.exports = function(sns, config, logger, callback) {
-    const protocol = /^(https?):/.exec(config.endpoint)[1];
+    const protocolMatch = /^(https?):/.exec(config.endpoint);
+    if (!protocolMatch) return Promise.reject(Error('Invalid endpoint. You must specify the full endpoint URL, including http or https protocol.'));
+
+    const protocol = protocolMatch[1];
 
     return new Promise(function(resolve, reject) {
         
@@ -85,6 +88,8 @@ module.exports = function(sns, config, logger, callback) {
         // set the app to listen on the port
         app.server = app.listen(config.port, function(err) {
             if (err) return reject(err);
+
+            console.log('Server listening on port ' + app.server.address().port);
 
             // initiate subscription to the topic
             const params = {
