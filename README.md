@@ -105,7 +105,7 @@ The three lambdas are:
 
 The following diagram outlines the flow of this information when using two AWS SNS Topics:
 
-![Basic Example](./img/basic-example.png)
+![Basic Example](./img/better-example.png)
 
 1. The Aggregator sends an event to the SNS Topic that Increment and Double are subscribed to. The event is formatted in such a way that both Increment and Double can recognize it as a Scather request.
 2. The SNS Topic causes both Increment and Double to run.
