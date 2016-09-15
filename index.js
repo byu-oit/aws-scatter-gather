@@ -14,5 +14,22 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  **/
+// TODO: only set up one tunnel for multiple subscriptions
+// TODO: upload a lambda for testing
+
 'use strict';
-module.exports = require('./bin/scatter-gather');
+const EventInterface    = require('./bin/event-interface');
+const Log               = require('./bin/log');
+const Scather           = require('./bin/scatter-gather');
+const Server            = require('./bin/server');
+const Subscription      = require('./bin/subscription');
+
+module.exports = {
+    EventInterface: EventInterface,
+    Logger: Log,
+    request: Scather.request,
+    response: Scather.response,
+    server: Server,
+    subscribe: Subscription.subscribe,
+    unsubscribe: Subscription.unsubscribe
+};

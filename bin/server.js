@@ -15,91 +15,319 @@
  *    limitations under the License.
  **/
 'use strict';
-const bodyParser    = require('body-parser');
-const express       = require('express');
+const AWS               = require('aws-sdk');
+const bodyParser        = require('body-parser');
+const defer             = require('./defer');
+const express           = require('express');
+const EventInterface    = require('./event-interface');
+const Graceful          = require('node-graceful');
+const Log               = require('./log')('SERVER');
+const ngrok             = require('ngrok');
+const Promise           = require('bluebird');
+const schemas           = require('./schemas');
+const Subscriptions     = require('./subscription');
+
+const confirmedSubscriptions = {};
+const coStart = Promise.coroutine(start);
+const coStop = Promise.coroutine(stop);
+const unconfirmedSubscriptions = {};
+var startPromise;
+var stopPromise;
+var stopper;
+
+module.exports = exports = {
+    start: paradigm(configuration => {
+        const state = getState();
+        if (state === 'starting' || state === 'started') return Promise.reject(Error('The server is already ' + state));
+        if (state === 'ending') return stopPromise.then(() => exports.start());
+
+        const config = schemas.server.normalize(configuration);
+        if (!config.tunnel && !config.endpoint) return Promise.reject(Error('Either the endpoint must be specified or the tunnel must be enabled.'));
+
+        startPromise = coStart(config);
+        startPromise.catch(e => startPromise = null);
+        return startPromise;
+    }),
+
+    ready: paradigm(getReadyPromise),
+
+    get state () => { return getState(); },
+
+    stop: paradigm(() => {
+        const state = getState();
+        if (state === 'stopping' || state === 'stopped') return Promise.reject(Error('The server is already ' + state));
+        if (state === 'starting') return startPromise.then(() => exports.end());
+
+        stopPromise = coStop();
+        stopPromise.finally(() => {
+            startPromise = null;
+            stopPromise = null;
+        });
+        return stopPromise;
+    })
+};
+
+Graceful.on('exit', coStop);
+
+
 
 /**
- * Start a new server.
- * @param {object} sns The AWS Sns instance.
- * @param {object} config The server configuration.
- * @param {object} logger The logger to use
- * @param {function} callback A function to call with each request object.
- * @returns {Promise<Server>}
+ * Get a promise
+ * @returns {Promise}
  */
-module.exports = function(sns, config, logger, callback) {
-    const protocolMatch = /^(https?):/.exec(config.endpoint);
-    if (!protocolMatch) return Promise.reject(Error('Invalid endpoint. You must specify the full endpoint URL, including http or https protocol.'));
-
-    const protocol = protocolMatch[1];
-
-    return new Promise(function(resolve, reject) {
-        
-        // get an express server instance
-        const app = express();
-
-        // If the message is from AWS then set the content type to application/json
-        // before the body parser middleware
-        app.use(function(req, res, next) {
-            switch (req.headers['x-amz-sns-message-type']) {
-                case 'Notification':
-                case 'SubscriptionConfirmation':
-                case 'UnsubscribeConfirmation':
-                    req.headers['content-type'] = 'application/json';
-                    break;
-            }
-            next();
-        });
-
-        // parse JSON body
-        app.use(bodyParser.json());
-
-        // watch for post requests
-        app.post(/.*/, function(req, res) {
-            switch (req.headers['x-amz-sns-message-type']) {
-                
-                // forward notification to the callback
-                case 'Notification':
-                    logger.log('Received Notification: ' + JSON.stringify(req.body, null, 2));
-                    callback(req.body);
-                    break;
-                
-                // confirm subscription to the topic
-                case 'SubscriptionConfirmation':
-                    logger.log('Received SubscriptionConfirmation: ' + JSON.stringify(req.body, null, 2));
-                    const params = {
-                        Token: req.body.Token,
-                        TopicArn: req.body.TopicArn
-                    };
-                    sns.confirmSubscription(params, function(err) {
-                        if (err) return reject(err);
-                        resolve(app);
-                    });
-                    break;
-                
-                // confirm unsubscription from the topic
-                case 'UnsubscribeConfirmation':
-                    break;
-            }
-
-            // send an empty response
-            res.end();
-        });
-
-        // set the app to listen on the port
-        app.server = app.listen(config.port, function(err) {
-            if (err) return reject(err);
-
-            console.log('Server listening on port ' + app.server.address().port);
-
-            // initiate subscription to the topic
-            const params = {
-                Protocol: protocol,
-                TopicArn: config.topicArn,
-                Endpoint: config.endpoint
-            };
-            sns.subscribe(params, function(err) {
-                if (err) return reject(err);
-            });
-        });
+function getReadyPromise() {
+    const promises = [];
+    Object.keys(unconfirmedSubscriptions).forEach(k => {
+        promises.push(unconfirmedSubscriptions[k].promise);
     });
-};
+    return Promise.all(promises);
+}
+
+/**
+ * Get the state based on known promise states.
+ * @returns {string}
+ */
+function getState() {
+    if (!startPromise) return 'stopped';
+    if (startPromise.isPending()) return 'starting';
+    if (stopPromise && stopPromise.isPending()) return 'stopping';
+    return 'started';
+}
+
+/**
+ * Return a function that handles either the callback or promise paradigm.
+ * @param {function} fn
+ * @returns {function}
+ */
+function paradigm(fn) {
+    return function() {
+        const lastArg = arguments.length > 0 ? arguments[arguments.length - 1] : null;
+        const promise = fn.apply(exports, arguments);
+        if (typeof lastArg === 'function') {
+            promise.then(v => callback(null, v), e => callback(e, null));
+        } else {
+            return promise;
+        }
+    }
+}
+
+/**
+ * Start the server.
+ * @param config
+ * @returns {*}
+ */
+function * start(config) {
+
+    try {
+        // initialize the stopper instructions
+        stopper = [];
+
+        // start the express app and add middleware
+        const app = express();
+        const sns = new AWS.SNS();
+        app.use(awsContentType);
+        app.use(bodyParser.json());
+        app.use(awsConfirmSubscription(sns));
+        app.use(awsNotification());
+
+        // wait for the server to listen on a port
+        const server = yield serverListen(app, config.port);
+        stopper.push({ args: [], aysnc: false, callback: server.close, context: server, message: 'Server connection closed' });
+        Log.info('Server listening on port ' + server.address().port);
+
+        // start ngrock if enabled
+        var endpoint = config.endpoint;
+        if (config.tunnel) {
+            let tunnel = typeof config.tunnel === 'object' ? Object.assign({}, config.tunnel) : {};
+            tunnel.addr = server.address().port;
+            endpoint = yield connectNgrok(tunnel);
+            stopper.push({ args: [endpoint], aysnc: false, callback: ngrok.disconnect, context: ngrok, message: 'Ngrok tunnel disconnected' });
+            Log.info('Ngrok tunnel enabled: ' + endpoint);
+        }
+
+        Subscriptions.list(true).forEach(function(topicArn) {
+            awsSubscribe(sns, topicArn, endpoint);
+        });
+
+        return exports.ready;
+
+    } catch (e) {
+        Log.info('Failed to start: ' + err.stack);
+        return coStop().then(() => { throw err });
+    }
+}
+
+function * stop() {
+    var item;
+    while (item = stopper.pop()) {
+        try {
+            if (!item.async) {
+                item.callback.apply(item.context || item.callback, item.args);
+            } else {
+                yield item.callback.apply(item.context || item.callback, item.args);
+            }
+            Log.info(item.message);
+        } catch (err) {
+            Log.info('Failed to stop: ' + err.stack);
+            return Promise.reject(err);
+        }
+    }
+    ngrok.kill();
+}
+
+/**
+ * Middleware that forces aws messages to have the content type header set to application/json
+ * @param req
+ * @param res
+ * @param next
+ */
+function awsContentType(req, res, next) {
+    switch (req.headers['x-amz-sns-message-type']) {
+        case 'Notification':
+        case 'SubscriptionConfirmation':
+        case 'UnsubscribeConfirmation':
+            req.headers['content-type'] = 'application/json';
+            break;
+    }
+    next();
+}
+
+/**
+ * Create middleware for responding to AWS confirmation requests. Also get a promise that resolves once confirmed.
+ * @param sns
+ * @returns {{middleware: middleware, promise: Promise}}
+ */
+function awsConfirmSubscription(sns) {
+    const middleware = function(req, res, next) {
+        if (req.method !== 'POST' || req.headers['x-amz-sns-message-type'] !== 'SubscriptionConfirmation') return next();
+
+        // check to see if we're waiting on this topic confirmation
+        const topicArn = req.body.TopicArn;
+        if (!unconfirmedSubscriptions.hasOwnProperty(req.body.TopicArn)) return res.end();
+
+        // get deferred object
+        const deferred = unconfirmedSubscriptions[topicArn];
+
+        // send aws the confirmation
+        const params = {
+            Token: req.body.Token,
+            TopicArn: topicArn
+        };
+        sns.confirmSubscription(params, function (err, data) {
+            EventInterface.fire(EventInterface.SNS, {
+                action: 'confirmSubscription',
+                error: err,
+                params: params,
+                result: data
+            });
+
+            // delete from unconfirmed subscriptions despite outcome
+            delete unconfirmedSubscriptions[topicArn];
+
+            if (err) {
+                deferred.reject(err);
+            } else {
+                deferred.resolve(data.SubscriptionArn);
+                Log.info('Local server subscribed to SNS Topic');
+
+                // store confirmed subscription arn
+                confirmedSubscriptions[topicArn] = data.SubscriptionArn;
+            }
+        });
+
+        // send an empty response
+        res.end();
+    };
+    return {
+        middleware: middleware,
+        promise: promise
+    }
+}
+
+/**
+ * Middleware that puts aws notifications on the local event interface
+ * @returns {Function}
+ */
+function awsNotification() {
+    return function(req, res, next) {
+        if (req.method !== 'POST' || req.headers['x-amz-sns-message-type'] !== 'Notification') return next();
+        EventInterface.fire(EventInterface.NOTIFICATION, req.body);
+        res.end();
+    }
+}
+
+/**
+ * Unsubscribe the server from aws.
+ * @param sns
+ * @param subscriptionArn
+ * @returns {Promise}
+ */
+function awsUnsubscribe(sns, subscriptionArn) {
+    const deferred = defer();
+    const params = { SubscriptionArn: subscriptionArn };
+    sns.unsubscribe(params, function(err) {
+        if (err) return deferred.reject(err);
+        deferred.resolve();
+    });
+    return deferred.promise;
+}
+
+/**
+ * Subscribe to an SNS Topic.
+ * @param sns
+ * @param topicArn
+ * @param endpoint
+ * @returns {Promise}
+ */
+function awsSubscribe(sns, topicArn, endpoint) {
+    const deferred = defer();
+    const params = {
+        Protocol: /^(https?):/.exec(endpoint)[1],
+        TopicArn: topicArn,
+        Endpoint: endpoint
+    };
+    sns.subscribe(params, function(err, data) {
+        EventInterface.fire(EventInterface.SNS, {
+            action: 'subscribe',
+            error: err,
+            params: params,
+            result: data
+        });
+        if (err) return deferred.reject(err);
+    });
+    unconfirmedSubscriptions[topicArn] = deferred;
+}
+
+/**
+ * Start ngrok tunneling.
+ * @param config
+ * @returns {Promise}
+ */
+function connectNgrok(config) {
+    const deferred = defer();
+    ngrok.connect(config, function(err, url) {
+        if (err) return deferred.reject(err);
+        deferred.resolve(url);
+    });
+    return deferred.promise;
+}
+
+/**
+ * Start the server listening on the specified port.
+ * @param app
+ * @param port
+ * @returns {Promise}
+ */
+function serverListen(app, port) {
+    const deferred = defer();
+    const server = app.listen(port, function(err) {
+        if (err) return deferred.reject(err);
+        deferred.resolve(server);
+    });
+    return deferred.promise;
+}
+
+
+
+
+

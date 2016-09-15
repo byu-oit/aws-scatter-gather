@@ -15,309 +15,208 @@
  *    limitations under the License.
  **/
 'use strict';
-const defer         = require('./defer');
-const getGatherer   = require('./gatherer');
-const Logger        = require('./logger');
-const Promise       = require('bluebird');
-const Server        = require('./server');
-const uuid          = require('uuid').v4;
+const defer             = require('./defer');
+const EventRecord       = require('./event-record');
+const EventInterface    = require('./event-interface');
+const Log               = require('./log');
+const Orchestrate       = require('./orchestrate');
+const schemas           = require('./schemas');
+const uuid              = require('uuid').v4;
 
-module.exports = Scather;
+const Req = Log('SCATHER_REQUEST');
+const Res = Log('SCATHER_RESPONSE');
 
-/**
- * Get the scatter gather factory function.
- * @param {object} sns An AWS sns instance to publish events to and to subscribe to.
- * @param {object} configuration The configuration to apply to this scatter-gather instance.
- * @returns {Scather}
- */
-function Scather (sns, configuration) {
-    const factory = Object.create(Scather.prototype);
-    const gatherers = {};
-    var subscriberPromise;
-
-    // build the normalized configuration
-    const defaults = {
-        log: false,
-        name: '',
-        port: 0,
-        endpoint: '',
-        topicArn: '',
-        version: '1.0'
+exports.request = function(data, configuration, callback) {
+    const config = schemas.request.normalize(configuration || {});
+    const attributes = {
+        ScatherDirection: 'request',
+        ScatherFunctionName: config.functionName,
+        ScatherResponseArn: config.responseArn || config.topicArn,
+        ScatherRequestId: uuid()
     };
-    const config = Object.assign(defaults, configuration || {});
+    const deferred = defer();
+    const event = EventRecord.createPublishEvent(config.topicArn, data, attributes);
+    const missing = config.expects.slice(0);
+    const result = {};
+    var minTimeoutReached = false;
 
-    // if no topic arn was specified then use the topic arn from the sns
-    if (!defaults.topicArn && sns.config && sns.config.params && sns.config.params.TopicArn) {
-        defaults.topicArn = sns.config.params.TopicArn;
+    // if minimum delay is reached and nothing is missing then resolve
+    setTimeout(function() {
+        minTimeoutReached = true;
+        if (missing.length === 0 && deferred.promise.isPending()) deferred.resolve(result);
+    }, config.minWait);
+
+    // if maximum delay is reached then resolve
+    setTimeout(function() {
+        if (deferred.promise.isPending()) deferred.resolve(result);
+    }, config.maxWait);
+
+    // define the gatherer
+    function gatherer(event) {
+
+        // if already resolved then exit now
+        if (!deferred.promise.isPending()) return;
+
+        // pull records out of the event that a responses to the request event
+        const records = EventRecord.extractScatherRecords(event, function(data, record) {
+            return data.attributes.ScatherDirection === 'response' &&
+                data.attributes.ScatherRequestId === attributes.ScatherRequestId;
+        });
+
+        // process each record and store
+        records.forEach(record => {
+            const senderName = record.attributes.ScatherFunctionName;
+
+            // delete reference from the wait map
+            const index = missing.indexOf(senderName);
+            if (index !== -1) missing.splice(index, 1);
+
+            // store the result
+            result[senderName] = record.message;
+
+            Req.info('Received response to request ' + attributes.ScatherRequestId + ' from ' + senderName);
+        });
+
+        // all expected responses received and min timeout passed, so resolve the deferred promise
+        if (missing.length === 0 && minTimeoutReached) {
+            deferred.resolve(result);
+        }
     }
 
-    // create the logger and add it to the config object
-    const logger = Logger(config.log);
+    // start listening for notification events
+    Orchestrate.on(attributes.ScatherResponseArn, attributes.ScatherFunctionName, gatherer);
+    
+    // publish the request event
+    EventInterface.fire(EventInterface.PUBLISH, event);
+    Req.info('Sent request ' + attributes.ScatherRequestId + ' to topic ' + config.topicArn + ' with data: ' + data);
 
-    /**
-     * Get the configuration for this scather instance.
-     * @type {object}
-     */
-    Object.defineProperty(factory, 'config', {
-        configurable: false,
-        enumerable: true,
-        value: Object.freeze(Object.assign({}, config)),
-        writable: false
+    // once the gatherer finishes then unsubscribe the gatherer from the event
+    deferred.promise.finally(() => {
+        Orchestrate.off(attributes.ScatherResponseArn, gatherer);
     });
 
-    /**
-     * If the server is running then end it.
-     * @returns {Promise<undefined>}
-     */
-    factory.end = function() {
-        if (!subscriberPromise) return Promise.resolve();
-        return subscriberPromise.then(end => end());
-    };
+    // return a promise or call the callback
+    if (typeof callback !== 'function') {
+        return deferred.promise.then(() => result);
+    } else {
+        deferred.promise.then(() => callback(null, result), e => callback(e, null));
+    }
+};
 
-    /**
-     * Send a scattered request along the configured AWS SNS topic.
-     * @param {*} event The event data to send with the request.
-     * @param {object} configuration The gather configuration.
-     * @returns {Promise<object>}
-     */
-    factory.request = function (event, configuration) {
-        const id = uuid();
-        logger.log('Request initiated: ' + id);
+/**
+ * Wrap a lambda function so that it only works on event records that represent scather requests.
+ * @param {function} handler A function with signature: function (data, metadata [, callback ]). If the callback is omitted then the returned value will be used.
+ * @returns {Function}
+ */
+exports.response = function(handler) {
+    const handlerTakesCallback = callbackArguments(handler).length >= 3;
+    return function(event, context, callback) {
+        const promises = [];
+        const hasCallback = typeof arguments[2] === 'function';
 
-        return startSubscriber(logger)
-            .then(function() {
-                return new Promise(function(resolve, reject) {
+        // validate the context
+        context = schemas.context.normalize(context || {});
 
-                    // build and store the gatherer
-                    const gatherer = getGatherer(configuration);
-                    gatherers[id] = gatherer;
+        EventRecord.extractScatherRecords(event, r => r.attributes.ScatherDirection === 'request').forEach(record => {
+            const deferred = defer();
+            promises.push(deferred.promise);
 
-                    // create publish event parameters
-                    const publishParams = {
-                        Message: JSON.stringify({
-                            error: null,
-                            data: event,
-                            sender: {
-                                name: config.name,
-                                responseId: id,
-                                targetId: null,
-                                version: config.version
-                            }
-                        }),
-                        TopicArn: config.topicArn
-                    };
-
-                    // publish the event
-                    sns.publish(publishParams, function(err) {
-                        if (err) {
-                            logger.log('Request ' + id + ' failed to publish event.');
-                            reject(err);
-                        } else {
-                            logger.log('Request ' + id + ' published event.');
-                        }
-                    });
-
-                    // use the response from the gatherer's promise to resolve or reject this promise
-                    gatherer.promise
-                        .then(function(result) {
-                            delete gatherers[id];
-                            result.complete = result.missing.length === 0;
-                            resolve(result);
-                            logger.log('Request ' + id + ' successfully completed.');
-                        }, function(err) {
-                            reject(err);
-                            logger.log('Request ' + id + ' failed to complete');
-                        });
+            // callback paradigm
+            if (handlerTakesCallback) {
+                handler(record.message, record.attributes, function(err, data) {
+                    if (err) return deferred.reject(err);
+                    deferred.resolve(data);
                 });
-            });
-    };
 
-    /**
-     * Create a response handler for an AWS lambda function that will respond to
-     * a scattered request.
-     * @param {object} [configuration] An optional configuration for the response.
-     * @param {function} handler A function to call to accept an event and produce an event.
-     * @returns {Function}
-     */
-    factory.response = function(configuration, handler) {
-
-        if (typeof configuration === 'function') {
-            handler = arguments[0];
-            configuration = {};
-        }
-
-        return function(event, context, callback) {
-            const id = uuid();
-            
-            logger.log('Response initiated: ' + id);
-            logger.log('Response ' + id + ' original event:\n', JSON.stringify(event, null, 2));
-
-            // validate the event and get it's message object
-            const validResult = validateRequesterEvent(event);
-            if (typeof validResult === 'string') return callback(Error(validResult));
-
-            // set some constants
-            const record = validResult.record;
-            const message = validResult.message;
-            const sender = message.sender;
-
-            logger.log('Response ' + id + ' handling record');
-
-            handler(message.data, sender, function(err, response) {
-                logger.log('Response ' + id + ' handled record');
-                const result = {
-                    error: err,
-                    data: response,
-                    sender: {
-                        name: configuration.name || (context && context.functionName) || '',
-                        responseId: null,
-                        targetId: sender.responseId,
-                        version: configuration.version || config.version
-                    }
-                };
-                const params = {
-                    Message: JSON.stringify(result),
-                    TopicArn: record.Sns.TopicArn
-                };
-                if (!message.mock) {
-                    sns.publish(params, function(err) {
-                        if (err) return callback(err);
-                        if (result.error) return callback(result.error);
-                        return callback(null, result.data);
-                    });
-                } else {
-                    if (result.error) return callback(result.error);
-                    return callback(null, result.data);
-                }
-            });
-        }
-    };
-
-    return factory;
-
-
-    /**
-     * Accept a notification body and process it.
-     * @param {object} body
-     */
-    function notificationHandler(body) {
-        const event = JSON.parse(body.Message);
-        if (gatherers.hasOwnProperty(event.sender.targetId)) gatherers[event.sender.targetId](event);
-    }
-
-    /**
-     * Start a server that will subscribe to the AWS SNS Topic.
-     * @param {object} logger The logger to use 
-     * @returns {Promise<function>} resolves to a the close function.
-     */
-    function startSubscriber(logger) {
-        if (!subscriberPromise) {
-            
-            // endpoint provided, set up a server that subscribes to the topic
-            if (config.endpoint) {
-                subscriberPromise = Server(sns, config, logger, notificationHandler)
-                    .then(function (app) {
-                        return function () {
-                            return new Promise(function (resolve, reject) {
-                                app.server.close(function (err) {
-                                    if (err) return reject(err);
-                                    subscriberPromise = null;
-                                    resolve();
-                                })
-                            });
-                        };
-                    });
+            // promise paradigm
             } else {
-                subscriberPromise = Promise.resolve();
+                try {
+                    const result = handler(record.message, record.attributes);
+                    deferred.resolve(result);
+                } catch (err) {
+                    deferred.reject(err);
+                }
             }
-        }
-        return subscriberPromise;
-    }
-}
 
-/**
- * Determine if an event is a valid request event.
- * @param {object} event
- * @returns {boolean}
- */
-Scather.isRequestEvent = function(event) {
-    const result = validateRequesterEvent(event);
-    return typeof result === 'object';
-};
+            // publish an event with the response
+            deferred.promise
+                .then(message => {
+                    const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
+                        ScatherDirection: 'response',
+                        ScatherFunctionName: context.functionName,
+                        ScatherResponseArn: record.attributes.ScatherResponseArn,
+                        ScatherRequestId: record.attributes.ScatherRequestId
+                    });
+                    EventInterface.fire(EventInterface.PUBLISH, event);
+                    Res.info('Sent response for ' + record.attributes.ScatherRequestId +
+                        ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
+                });
 
-Scather.mock = {};
-
-/**
- * Generate an event that looks enough like an SNS Topic event that the scatherer will process it.
- * @param {*} data The data to add to the event.
- * @returns {object}
- */
-Scather.mock.requestEvent = function(data) {
-    const event = {
-        Records: []
-    };
-    var i;
-    var message;
-    for (i = 0; i < arguments.length; i++) {
-        message = {
-            error: null,
-            data: arguments[i],
-            mock: true,
-            sender: {
-                name: '-',
-                responseId: '-',
-                targetId: '',
-                version: '0.0'
-            }
-        };
-        event.Records.push({
-            Sns: {
-                Message: JSON.stringify(message)
-            }
         });
-    }
-    return event;
+
+        // get a promise that all records have been processed
+        const promise = Promise.all(promises);
+
+        // respond to callback or promise paradigm
+        if (hasCallback) {
+            promise.then(results => callback(null, results), err => callback(err, null));
+        } else {
+            return promise;
+        }
+    };
 };
 
-/**
- * Attempt to parse a JSON string and return it, or null.
- * @param {string} data
- * @returns {object}
- */
-function parseIfJson(data) {
-    try {
-        return JSON.parse(data);
-    } catch (e) {
-        return null;
-    }
+function callbackArguments(callback) {
+    if (typeof callback !== 'function') throw Error('Expected a function.');
+
+    const rx = /^(?:function\s?)?([\s\S]+?)\s?(?:=>\s?)?\{/;
+    const match = rx.exec(callback.toString());
+
+    var args = match[1];
+    if (/^\([\s\S]*?\)$/.test(args)) args = args.substring(1, args.length - 1);
+    args = args.split(/,\s?/);
+
+    return args && args.length === 1 && !args[0] ? [] : args;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
- * Check to see if an event object is an aws-scatter-gather request event.
- * @param event
- * @returns {string, object}
+ * Build an object that represents the parameters to publish to an SNS Topic.
+ * @param topicArn
+ * @param [responseArn]
+ * @returns {object}
  */
-function validateRequesterEvent(event) {
+function buildRequestSnsParams(topicArn, responseArn) {
+    const isObject = typeof event === 'object';
 
-    // validate the event
-    if (!event || typeof event !== 'object') return 'Event must be an object';
-    if (!event.hasOwnProperty('Records')) return 'Event missing required property: Records';
-    if (!Array.isArray(event.Records) || event.Records.length !== 1) return 'Event.Records expected Array of length 1. Received: ' + event.Records;
-
-    const record = event.Records[0];
-    if (!record.hasOwnProperty('Sns') || !record.Sns || typeof record.Sns !== 'object') return 'Invalid value for event.Records[0].Sns';
-
-    const message = parseIfJson(record.Sns.Message);
-    if (!message || typeof message !== 'object' ||
-        !message.hasOwnProperty('sender') ||
-        !message.sender ||
-        typeof message.sender !== 'object') return 'Invalid aws-scatter-gather event message';
-
-    const sender = message.sender;
-    if (sender.targetId || !sender.responseId) return 'Not an aws-scatter-gather requester event';
+    const context = {
+        json: isObject,
+        responseArn: responseArn || topicArn,
+        requestId: uuid()
+    };
 
     return {
-        record: record,
-        message: message
+        Message: isObject ? JSON.stringify(event) : event,
+        MessageAttributes: {
+            ScatherRequest: {
+                DataType: 'String',
+                StringValue: JSON.stringify(context)
+            }
+        },
+        TopicArn: topicArn
     };
 }
+

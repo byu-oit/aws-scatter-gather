@@ -1,6 +1,6 @@
 {
   "name": "aws-scatter-gather",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS.",
   "main": "index.js",
   "scripts": {
@@ -30,13 +30,17 @@
     "bluebird": "^3.4.0",
     "body-parser": "^1.15.1",
     "express": "^4.13.4",
+    "freeport": "^1.0.5",
+    "ngrok": "^2.2.2",
+    "node-graceful": "^0.2.3",
+    "object-schemata": "^1.0.8",
     "uuid": "^2.0.2"
   },
   "devDependencies": {
+    "adm-zip": "^0.4.7",
     "aws-sdk": "^2.5.3",
     "chai": "^3.5.0",
     "mocha": "^2.5.3",
-    "ngrok": "^2.2.2",
     "request": "^2.72.0"
   }
 }
