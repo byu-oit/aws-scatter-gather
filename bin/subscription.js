@@ -127,7 +127,7 @@ function subscribe(topicArn, functionName, handler, callback) {
     }
 
     // create a server subscription
-    return defer.paradigm(Server.subscribe(topicArn), callback);
+    return defer.paradigm(Server.subscribe(topicArn).then(() => undefined), callback);
 }
 
 /**
