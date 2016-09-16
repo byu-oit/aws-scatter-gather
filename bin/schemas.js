@@ -71,11 +71,6 @@ exports.server = Schemata({
         help: 'The port must be a non-negative number.',
         validate: (v, is) => !is.nan(v) && v >= 0
     },
-    topicArn: {
-        help: 'The value must be a valid AWS SNS Topic Arn.',
-        required: true,
-        validate: (v, is) => is.string(v) && v.length > 0
-    },
     tunnel: {
         defaultValue: false,
         help: 'Set to true to enable tunneling with defaults, otherwise specify and ngrok configuration object.',
