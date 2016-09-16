@@ -31,6 +31,8 @@ const confirmedSubscriptions = {};
 const coStart = Promise.coroutine(start);
 const coStop = Promise.coroutine(stop);
 const unconfirmedSubscriptions = {};
+var runConfig;
+var runSns;
 var startPromise;
 var stopPromise;
 var stopper;
@@ -44,6 +46,7 @@ module.exports = exports = {
 
         const config = schemas.server.normalize(configuration);
         if (!config.tunnel && !config.endpoint) return Promise.reject(Error('Either the endpoint must be specified or the tunnel must be enabled.'));
+        runConfig = config;
 
         startPromise = coStart(config);
         startPromise.catch(e => startPromise = null);
@@ -52,7 +55,7 @@ module.exports = exports = {
 
     ready: paradigm(getReadyPromise),
 
-    get state () => { return getState(); },
+    get state () { return getState(); },
 
     stop: paradigm(() => {
         const state = getState();
@@ -67,7 +70,11 @@ module.exports = exports = {
         return stopPromise;
     }),
 
-    subscribe: awsSubscribe,
+    subscribe: function(topicArn) {
+        return runSns ?
+            awsSubscribe(runSns, topicArn, runConfig.endpoint) :
+            Promise.resolve('');
+    },
 
     unsubscribe: awsUnsubscribe
 };
@@ -130,6 +137,7 @@ function * start(config) {
         // start the express app and add middleware
         const app = express();
         const sns = new AWS.SNS();
+        runSns = sns;
         app.use(awsContentType);
         app.use(bodyParser.json());
         app.use(awsConfirmSubscription(sns));
@@ -141,17 +149,16 @@ function * start(config) {
         Log.info('Server listening on port ' + server.address().port);
 
         // start ngrock if enabled
-        var endpoint = config.endpoint;
         if (config.tunnel) {
             let tunnel = typeof config.tunnel === 'object' ? Object.assign({}, config.tunnel) : {};
             tunnel.addr = server.address().port;
-            endpoint = yield connectNgrok(tunnel);
-            stopper.push({ args: [endpoint], aysnc: false, callback: ngrok.disconnect, context: ngrok, message: 'Ngrok tunnel disconnected' });
-            Log.info('Ngrok tunnel enabled: ' + endpoint);
+            config.endpoint = yield connectNgrok(tunnel);
+            stopper.push({ args: [config.endpoint], aysnc: false, callback: ngrok.disconnect, context: ngrok, message: 'Ngrok tunnel disconnected' });
+            Log.info('Ngrok tunnel enabled: ' + config.endpoint);
         }
 
         Subscriptions.list(true).forEach(function(topicArn) {
-            awsSubscribe(sns, topicArn, endpoint);
+            awsSubscribe(sns, topicArn, config.endpoint);
         });
 
         return getReadyPromise();
@@ -203,7 +210,7 @@ function awsContentType(req, res, next) {
  * @returns {{middleware: middleware, promise: Promise}}
  */
 function awsConfirmSubscription(sns) {
-    const middleware = function(req, res, next) {
+    return function(req, res, next) {
         if (req.method !== 'POST' || req.headers['x-amz-sns-message-type'] !== 'SubscriptionConfirmation') return next();
 
         // check to see if we're waiting on this topic confirmation
@@ -243,10 +250,6 @@ function awsConfirmSubscription(sns) {
         // send an empty response
         res.end();
     };
-    return {
-        middleware: middleware,
-        promise: promise
-    }
 }
 
 /**
