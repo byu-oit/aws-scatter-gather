@@ -55,27 +55,17 @@ exports.getResponseParameters = function(err, data, name, responseId, topicArn) 
 exports.createNotificationEvent = function(topicArn, message, messageAttributes) {
     const o = preProcessEventMessage(message, messageAttributes);
     return {
-        Records: [
-            {
-                EventVersion: "1.0",
-                EventSubscriptionArn: '',
-                EventSource: "awssg:local",
-                Sns: {
-                    SignatureVersion: '',
-                    Timestamp: new Date().toISOString(),
-                    Signature: '',
-                    SigningCertUrl: '',
-                    MessageId: uuid(),
-                    Message: o.message,
-                    MessageAttributes: o.messageAttributes,
-                    Type: "Notification",
-                    UnsubscribeUrl: '',
-                    TopicArn: topicArn,
-                    Subject: ''
-                }
-            }
-        ]
-    }
+        Type: 'Notification',
+        MessageId: uuid(),
+        TopicArn: topicArn,
+        Message: o.message,
+        Timestamp: new Date().toISOString(),
+        SignatureVersion: '',
+        Signature: '',
+        SigningCertURL: '',
+        UnsubscribeURL: '',
+        MessageAttributes: o.messageAttributes
+    };
 };
 
 exports.createPublishEvent = function(topicArn, message, messageAttributes) {
