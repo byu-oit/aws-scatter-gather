@@ -25,12 +25,12 @@ const Log               = require('./log')('SERVER');
 const ngrok             = require('ngrok');
 const Promise           = require('bluebird');
 const schemas           = require('./schemas');
-const Subscriptions     = require('./subscription');
 
 const confirmedSubscriptions = {};
 const coStart = Promise.coroutine(start);
 const coStop = Promise.coroutine(stop);
 const unconfirmedSubscriptions = {};
+const subscriptions = [];
 var runConfig;
 var runSns;
 var startPromise;
@@ -49,7 +49,9 @@ module.exports = exports = {
         runConfig = config;
 
         startPromise = coStart(config);
-        startPromise.catch(e => startPromise = null);
+        startPromise.catch(e => {
+            startPromise = null
+        });
         return startPromise;
     }),
 
@@ -81,6 +83,15 @@ module.exports = exports = {
 
 Graceful.on('exit', coStop);
 
+EventInterface.on(EventInterface.SUBSCRIBE, function(event) {
+    const index = subscriptions.indexOf(event.topicArn);
+    if (index === -1) subscriptions.push(event.topicArn);
+});
+
+EventInterface.on(EventInterface.UNSUBSCRIBE, function(event) {
+    const index = subscriptions.indexOf(event.topicArn);
+    if (index !== -1) subscriptions.splice(index, 1);
+});
 
 
 /**
@@ -157,14 +168,14 @@ function * start(config) {
             Log.info('Ngrok tunnel enabled: ' + config.endpoint);
         }
 
-        Subscriptions.list(true).forEach(function(topicArn) {
+        subscriptions.forEach(function(topicArn) {
             awsSubscribe(sns, topicArn, config.endpoint);
         });
 
         return getReadyPromise();
 
-    } catch (e) {
-        Log.info('Failed to start: ' + err.stack);
+    } catch (err) {
+        Log.error('Failed to start: ' + err.stack);
         return coStop().then(() => { throw err });
     }
 }

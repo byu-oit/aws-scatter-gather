@@ -15,6 +15,7 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS               = require('aws-sdk');
 const defer             = require('./defer');
 const EventInterface    = require('./event-interface');
 const EventRecord       = require('./event-record');
@@ -22,7 +23,6 @@ const Log               = require('./log')('SUBSCRIPTION');
 const Server            = require('./server');
 
 module.exports = {
-    list: list,
     subscribe: subscribe,
     unsubscribe: unsubscribe
 };
@@ -46,11 +46,6 @@ function findIndex(topicArn, handler) {
         if (subscriptions[topicArn][i].handler === handler) return i;
     }
     return -1;
-}
-
-function list(filterByValidArn) {
-    const keys = Object.keys(subscriptions);
-    return filterByValidArn ? keys.filter(k => rxArn.test(k)) : keys 
 }
 
 function onNotification(snsEvent) {
