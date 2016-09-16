@@ -276,6 +276,9 @@ function awsSubscribe(sns, topicArn, endpoint) {
     const subscriptionArn = confirmedSubscriptions[topicArn];
     if (subscriptionArn) return Promise.resolve(subscriptionArn);
 
+    // if subscription request underway then return previous promise
+    if (unconfirmedSubscriptions[topicArn]) return unconfirmedSubscriptions[topicArn].promise;
+
     const deferred = defer();
     const params = {
         Protocol: /^(https?):/.exec(endpoint)[1],
@@ -292,6 +295,8 @@ function awsSubscribe(sns, topicArn, endpoint) {
         if (err) return deferred.reject(err);
     });
     unconfirmedSubscriptions[topicArn] = deferred;
+
+    return deferred.promise;
 }
 
 /**
