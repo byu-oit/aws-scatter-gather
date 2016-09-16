@@ -32,9 +32,9 @@ exports.request = Schemata({
         validate: (v, is) => isArrayOfStrings(v)
     },
     functionName: {
-        defaultValue: '',
-        help: 'This must be a string.',
-        validate: (v, is) => is.string(v)
+        defaultValue: '-',
+        help: 'This must be a non-empty string.',
+        validate: (v, is) => is.string(v) && v.length > 0
     },
     maxWait: {
         defaultValue: 2500,
