@@ -109,11 +109,7 @@ EventInterface.on(EventInterface.LOG, function (event) {
         const args = Array.prototype.slice.call(event.args, 0);
         args.unshift(event.namespace);
         args.unshift(setStringToLength(event.level, 5));
-        if (event.level === 'INFO') {
-            console.log.apply(console, args);
-        } else {
-            console.error.apply(console, args);
-        }
+        console.log.apply(console, args);
     }
 });
 
