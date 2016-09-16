@@ -207,7 +207,7 @@ function awsContentType(req, res, next) {
 /**
  * Create middleware for responding to AWS confirmation requests. Also get a promise that resolves once confirmed.
  * @param sns
- * @returns {{middleware: middleware, promise: Promise}}
+ * @returns {function}
  */
 function awsConfirmSubscription(sns) {
     return function(req, res, next) {
@@ -240,7 +240,7 @@ function awsConfirmSubscription(sns) {
                 deferred.reject(err);
             } else {
                 deferred.resolve(data.SubscriptionArn);
-                Log.info('Local server subscribed to SNS Topic');
+                Log.info('Server subscribed to AWS SNS Topic: ' + deferred.topicArn);
 
                 // store confirmed subscription arn
                 confirmedSubscriptions[topicArn] = data.SubscriptionArn;
@@ -280,6 +280,7 @@ function awsSubscribe(sns, topicArn, endpoint) {
     if (unconfirmedSubscriptions[topicArn]) return unconfirmedSubscriptions[topicArn].promise;
 
     const deferred = defer();
+    deferred.topicArn = topicArn;
     const params = {
         Protocol: /^(https?):/.exec(endpoint)[1],
         TopicArn: topicArn,
