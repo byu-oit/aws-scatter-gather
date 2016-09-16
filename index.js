@@ -29,7 +29,10 @@ module.exports = {
     Logger: Log,
     request: Scather.request,
     response: Scather.response,
-    server: Server,
+    server: {
+        start: Server.start,
+        stop: Server.stop
+    },
     subscribe: Subscription.subscribe,
     unsubscribe: Subscription.unsubscribe
 };
