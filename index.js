@@ -25,9 +25,9 @@ const Server            = require('./bin/server');
 const Subscription      = require('./bin/subscription');
 
 module.exports = {
+    aggregator: Scather.aggregator,
     EventInterface: EventInterface,
     Logger: Log,
-    request: Scather.request,
     response: Scather.response,
     server: {
         start: Server.start,
