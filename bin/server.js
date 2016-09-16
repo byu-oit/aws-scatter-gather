@@ -36,6 +36,7 @@ var stopPromise;
 var stopper;
 
 module.exports = exports = {
+
     start: paradigm(configuration => {
         const state = getState();
         if (state === 'starting' || state === 'started') return Promise.reject(Error('The server is already ' + state));
@@ -64,7 +65,11 @@ module.exports = exports = {
             stopPromise = null;
         });
         return stopPromise;
-    })
+    }),
+
+    subscribe: awsSubscribe,
+
+    unsubscribe: awsUnsubscribe
 };
 
 Graceful.on('exit', coStop);
@@ -149,7 +154,7 @@ function * start(config) {
             awsSubscribe(sns, topicArn, endpoint);
         });
 
-        return exports.ready;
+        return getReadyPromise();
 
     } catch (e) {
         Log.info('Failed to start: ' + err.stack);
@@ -257,22 +262,6 @@ function awsNotification() {
 }
 
 /**
- * Unsubscribe the server from aws.
- * @param sns
- * @param subscriptionArn
- * @returns {Promise}
- */
-function awsUnsubscribe(sns, subscriptionArn) {
-    const deferred = defer();
-    const params = { SubscriptionArn: subscriptionArn };
-    sns.unsubscribe(params, function(err) {
-        if (err) return deferred.reject(err);
-        deferred.resolve();
-    });
-    return deferred.promise;
-}
-
-/**
  * Subscribe to an SNS Topic.
  * @param sns
  * @param topicArn
@@ -280,6 +269,10 @@ function awsUnsubscribe(sns, subscriptionArn) {
  * @returns {Promise}
  */
 function awsSubscribe(sns, topicArn, endpoint) {
+    // if already subscribed then return now
+    const subscriptionArn = confirmedSubscriptions[topicArn];
+    if (subscriptionArn) return Promise.resolve(subscriptionArn);
+
     const deferred = defer();
     const params = {
         Protocol: /^(https?):/.exec(endpoint)[1],
@@ -296,6 +289,26 @@ function awsSubscribe(sns, topicArn, endpoint) {
         if (err) return deferred.reject(err);
     });
     unconfirmedSubscriptions[topicArn] = deferred;
+}
+
+/**
+ * Unsubscribe the server from aws.
+ * @param sns
+ * @param topicArn
+ * @returns {Promise}
+ */
+function awsUnsubscribe(sns, topicArn) {
+    const subscriptionArn = confirmedSubscriptions[topicArn];
+    delete unconfirmedSubscriptions[topicArn];
+    if (!subscriptionArn) return Promise.resolve();
+
+    const deferred = defer();
+    const params = {SubscriptionArn: subscriptionArn};
+    sns.unsubscribe(params, function (err) {
+        if (err) return deferred.reject(err);
+        deferred.resolve();
+    });
+    return deferred.promise;
 }
 
 /**
