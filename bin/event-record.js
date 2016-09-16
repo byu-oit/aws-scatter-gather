@@ -68,6 +68,32 @@ exports.createNotificationEvent = function(topicArn, message, messageAttributes)
     };
 };
 
+exports.createRecordEventFromNotifcation = function(event) {
+    if (!event || event.Type !== 'Notification') throw Error('Canot create record event from invalid notification event.');
+    return {
+        Records: [
+            {
+                EventVersion: "1.0",
+                EventSubscriptionArn: '',
+                EventSource: "awssg:local",
+                Sns: {
+                    SignatureVersion: event.SignatureVersion,
+                    Timestamp: event.Timestamp,
+                    Signature: event.Signature,
+                    SigningCertUrl: event.SigningCertUrl,
+                    MessageId: event.MessageId,
+                    Message: event.Message,
+                    MessageAttributes: event.MessageAttributes,
+                    Type: "Notification",
+                    UnsubscribeUrl: '',
+                    TopicArn: event.TopicArn,
+                    Subject: ''
+                }
+            }
+        ]
+    }
+}
+
 exports.createPublishEvent = function(topicArn, message, messageAttributes) {
     const o = preProcessEventMessage(message, messageAttributes);    
     return {

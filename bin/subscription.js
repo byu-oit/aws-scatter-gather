@@ -48,29 +48,11 @@ function findIndex(topicArn, handler) {
     return -1;
 }
 
-function onNotification(snsEvent) {
-    const records = {};
-    if (snsEvent && snsEvent.Records) {
-
-        // split records based on topic arn
-        snsEvent.Records.forEach(function(record) {
-            if (record.Sns && record.Sns.TopicArn) {
-                const topicArn = record.Sns.TopicArn;
-                if (!records.hasOwnProperty(topicArn)) records[topicArn] = [];
-                records[topicArn].push(record);
-            }
-        });
-
-        const original = JSON.stringify(snsEvent);
-
-        Object.keys(records).forEach(function(topicArn) {
-            if (subscriptions.hasOwnProperty(topicArn)) {
-                const copy = JSON.parse(original);
-                copy.Records = records[topicArn];
-                subscriptions[topicArn].forEach(item => {
-                    item.handler(copy, { functionName: item.functionName }, noop);
-                });
-            }
+function onNotification(event) {
+    if (event && event.Type === 'Notification') {
+        subscriptions[event.TopicArn].forEach(item => {
+            const data = EventRecord.createRecordEventFromNotifcation(event);
+            item.handler(data, { functionName: item.functionName }, noop);
         });
     }
 }
