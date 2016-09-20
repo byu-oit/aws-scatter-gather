@@ -161,46 +161,53 @@ exports.response = function(handler) {
         // validate the context
         context = schemas.context.normalize(context || {});
 
-        EventRecord.extractScatherRecords(event, function(r) { return r.attributes.ScatherDirection === 'request'; })
-            .forEach(function(record) {
-                const deferred = defer();
-                promises.push(deferred.promise);
-    
-                // callback paradigm
-                if (handlerTakesCallback) {
-                    handler(record.message, record.attributes, function(err, data) {
-                        if (err) return deferred.reject(err);
-                        deferred.resolve(data);
-                    });
-    
-                // promise paradigm
-                } else {
-                    try {
-                        const result = handler(record.message, record.attributes);
-                        deferred.resolve(result);
-                    } catch (err) {
-                        deferred.reject(err);
-                    }
+        console.log(event);
+
+        const records = EventRecord.extractScatherRecords(event, function(r) {
+            return r.attributes.ScatherDirection === 'request';
+        });
+        records.forEach(function(record) {
+            const deferred = defer();
+            promises.push(deferred.promise);
+
+            // callback paradigm
+            if (handlerTakesCallback) {
+                handler(record.message, record.attributes, function(err, data) {
+                    if (err) return deferred.reject(err);
+                    deferred.resolve(data);
+                });
+
+            // promise paradigm
+            } else {
+                try {
+                    const result = handler(record.message, record.attributes);
+                    deferred.resolve(result);
+                } catch (err) {
+                    deferred.reject(err);
                 }
-    
-                // publish an event with the response
-                deferred.promise
-                    .then(function(message) {
-                        const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
-                            ScatherDirection: 'response',
-                            ScatherFunctionName: context.functionName,
-                            ScatherResponseArn: record.attributes.ScatherResponseArn,
-                            ScatherRequestId: record.attributes.ScatherRequestId
-                        });
-                        EventInterface.fire(EventInterface.PUBLISH, event);
-                        Res.info('Sent response for ' + record.attributes.ScatherRequestId +
-                            ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
+            }
+
+            // publish an event with the response
+            deferred.promise
+                .then(function(message) {
+                    const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
+                        ScatherDirection: 'response',
+                        ScatherFunctionName: context.functionName,
+                        ScatherResponseArn: record.attributes.ScatherResponseArn,
+                        ScatherRequestId: record.attributes.ScatherRequestId
                     });
-    
-            });
+                    EventInterface.fire(EventInterface.PUBLISH, event);
+                    Res.info('Sent response for ' + record.attributes.ScatherRequestId +
+                        ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
+                });
+
+        });
 
         // get a promise that all records have been processed
         const promise = Promise.all(promises);
+        promise.then(function() {
+            console.log('Responded to ' + records.length + ' records');
+        });
 
         // respond to callback or promise paradigm
         return defer.paradigm(promise, callback);
