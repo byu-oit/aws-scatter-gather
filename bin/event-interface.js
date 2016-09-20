@@ -114,7 +114,7 @@ function getIndex(listeners, callback) {
 
 function fire(listeners, type, event) {
     const args = arguments;
-    listeners.forEach(l => {
+    listeners.forEach(function(l) {
         if (!l.once || l.calls === 0) {
             if (args.length === 2) {
                 l.callback(type);
@@ -124,5 +124,5 @@ function fire(listeners, type, event) {
         }
         l.calls++;
     });
-    return listeners.filter(l => !l.once || l.calls === 0);
+    return listeners.filter(function(l) { return !l.once || l.calls === 0 });
 }

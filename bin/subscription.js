@@ -50,7 +50,7 @@ function findIndex(topicArn, handler) {
 
 function onNotification(event) {
     if (event && event.Type === 'Notification') {
-        subscriptions[event.TopicArn].forEach(item => {
+        subscriptions[event.TopicArn].forEach(function(item) {
             const data = EventRecord.createRecordEventFromNotifcation(event);
             item.handler(data, { functionName: item.functionName }, noop);
         });
@@ -58,9 +58,11 @@ function onNotification(event) {
 }
 
 function onPublish(params) {
+    const state = Server.state;
+    const useAwsNotification = state === 'started' || state === 'starting';
 
     // if the aws object has credentials and the topic arn looks valid then publish the event to the SNS Topic
-    if (AWS.config.credentials && rxArn.test(params.TopicArn)) {
+    if (useAwsNotification && AWS.config.credentials && rxArn.test(params.TopicArn)) {
         const sns = new AWS.SNS();
         sns.publish(params, function(err, data) {
             EventInterface.fire(EventInterface.SNS, {
@@ -70,12 +72,13 @@ function onPublish(params) {
                 result: data
             });
         });
-    }
 
-    // take each publish event and repackage it as a notification
-    const data = EventRecord.decodeMessage(params);
-    const event = EventRecord.createNotificationEvent(params.TopicArn, data.message, data.attributes);
-    EventInterface.fire(EventInterface.NOTIFICATION, event);
+    // repackage the publish event as a notification if not use AWS SNS Topics
+    } else {
+        const data = EventRecord.decodeMessage(params.Message);
+        const event = EventRecord.createNotificationEvent(params.TopicArn, data.message, data.attributes, 'Local');
+        EventInterface.fire(EventInterface.NOTIFICATION, event);
+    }
 }
 
 /**
@@ -104,7 +107,7 @@ function subscribe(topicArn, functionName, handler, callback) {
     }
 
     // create a server subscription
-    return defer.paradigm(Server.subscribe(topicArn).then(() => undefined), callback);
+    return defer.paradigm(Server.subscribe(topicArn).then(noop), callback);
 }
 
 /**

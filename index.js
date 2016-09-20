@@ -19,6 +19,7 @@
 
 'use strict';
 const EventInterface    = require('./bin/event-interface');
+const EventRecord       = require('./bin/event-record');
 const Log               = require('./bin/log');
 const Scather           = require('./bin/scatter-gather');
 const Server            = require('./bin/server');
@@ -26,6 +27,7 @@ const Subscription      = require('./bin/subscription');
 
 module.exports = {
     aggregator: Scather.aggregator,
+    decodeMessage: EventRecord.decodeMessage,
     EventInterface: EventInterface,
     Logger: Log,
     response: Scather.response,

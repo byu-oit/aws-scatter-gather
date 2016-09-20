@@ -39,19 +39,17 @@ var stopper;
 
 module.exports = exports = {
 
-    start: paradigm(configuration => {
+    start: paradigm(function(configuration) {
         const state = getState();
         if (state === 'starting' || state === 'started') return Promise.reject(Error('The server is already ' + state));
-        if (state === 'ending') return stopPromise.then(() => exports.start());
+        if (state === 'ending') return stopPromise.then(function() { return exports.start(); });
 
         const config = schemas.server.normalize(configuration);
         if (!config.tunnel && !config.endpoint) return Promise.reject(Error('Either the endpoint must be specified or the tunnel must be enabled.'));
         runConfig = config;
 
         startPromise = coStart(config);
-        startPromise.catch(e => {
-            startPromise = null
-        });
+        startPromise.catch(function() { startPromise = null; });
         return startPromise;
     }),
 
@@ -59,13 +57,13 @@ module.exports = exports = {
 
     get state () { return getState(); },
 
-    stop: paradigm(() => {
+    stop: paradigm(function() {
         const state = getState();
         if (state === 'stopping' || state === 'stopped') return Promise.reject(Error('The server is already ' + state));
-        if (state === 'starting') return startPromise.then(() => exports.end());
+        if (state === 'starting') return startPromise.then(function() { return exports.end(); });
 
         stopPromise = coStop();
-        stopPromise.finally(() => {
+        stopPromise.finally(function() {
             startPromise = null;
             stopPromise = null;
         });
@@ -100,7 +98,7 @@ EventInterface.on(EventInterface.UNSUBSCRIBE, function(event) {
  */
 function getReadyPromise() {
     const promises = [];
-    Object.keys(unconfirmedSubscriptions).forEach(k => {
+    Object.keys(unconfirmedSubscriptions).forEach(function(k) {
         promises.push(unconfirmedSubscriptions[k].promise);
     });
     return Promise.all(promises);
@@ -126,11 +124,7 @@ function paradigm(fn) {
     return function() {
         const lastArg = arguments.length > 0 ? arguments[arguments.length - 1] : null;
         const promise = fn.apply(exports, arguments);
-        if (typeof lastArg === 'function') {
-            promise.then(v => callback(null, v), e => callback(e, null));
-        } else {
-            return promise;
-        }
+        return defer.paradigm(promise, lastArg);
     }
 }
 
@@ -176,7 +170,7 @@ function * start(config) {
 
     } catch (err) {
         Log.error('Failed to start: ' + err.stack);
-        return coStop().then(() => { throw err });
+        return coStop().then(function() { throw err });
     }
 }
 
@@ -270,7 +264,9 @@ function awsConfirmSubscription(sns) {
 function awsNotification() {
     return function(req, res, next) {
         if (req.method !== 'POST' || req.headers['x-amz-sns-message-type'] !== 'Notification') return next();
-        EventInterface.fire(EventInterface.NOTIFICATION, req.body);
+        if (req.body && typeof req.body === 'object' && req.body.Message.substr(0, 6) === 'AWSSG:') {
+            EventInterface.fire(EventInterface.NOTIFICATION, req.body);
+        }
         res.end();
     }
 }

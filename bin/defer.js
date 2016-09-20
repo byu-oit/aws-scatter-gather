@@ -30,7 +30,7 @@ function defer() {
 
 defer.paradigm = function(promise, callback) {
     if (typeof callback === 'function') {
-        promise.then(v => callback(null, v), e => callback(e, null));
+        promise.then(function(v) { callback(null, v) }, function(e) { callback(e, null) });
     } else {
         return promise;
     }

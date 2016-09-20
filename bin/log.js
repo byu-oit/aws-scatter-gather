@@ -35,8 +35,8 @@ function Logger(namespace, silent) {
     const factory = Object.create(Logger.prototype);
 
     Object.defineProperty(factory, 'silent', {
-        get: () => silentSpecified ? silent : defaultSilent,
-        set: v => silent = !!v
+        get: function() { return silentSpecified ? silent : defaultSilent },
+        set: function(v) { silent = !!v; }
     });
 
     /**
@@ -78,8 +78,8 @@ function Logger(namespace, silent) {
  * @type {boolean}
  */
 Object.defineProperty(Logger, 'events', {
-    get: () => logEvents,
-    set: v => {
+    get: function() { return logEvents },
+    set: function(v) {
         v = !!v;
         if (logEvents !== v) {
             if (v) {
@@ -99,8 +99,8 @@ Object.defineProperty(Logger, 'events', {
  * @type {boolean}
  */
 Object.defineProperty(Logger, 'silent', {
-    get: () => defaultSilent,
-    set: v => defaultSilent = !!v
+    get: function() { return defaultSilent; },
+    set: function(v) { defaultSilent = !!v; }
 });
 
 // handle log events

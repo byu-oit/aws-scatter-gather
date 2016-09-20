@@ -21,7 +21,7 @@ exports.context = Schemata({
     functionName: {
         required: true,
         help: 'This must be a non-empty string.',
-        validate: (v, is) => is.string(v) && v.length > 0
+        validate: function(v, is) { return is.string(v) && v.length > 0; }
     }
 });
 
@@ -29,34 +29,34 @@ exports.request = Schemata({
     expects: {
         defaultValue: [],
         help: 'This must be an array of strings.',
-        validate: (v, is) => isArrayOfStrings(v)
+        validate: function(v, is) { return isArrayOfStrings(v); }
     },
     functionName: {
         defaultValue: '-',
         help: 'This must be a non-empty string.',
-        validate: (v, is) => is.string(v) && v.length > 0
+        validate: function(v, is) { return is.string(v) && v.length > 0; }
     },
     maxWait: {
         defaultValue: 2500,
         help: 'This must be a non-negative number.',
-        transform: v => Math.round(v),
-        validate: (v, is) => !is.nan(v) && parseInt(v) >= 0
+        transform: function(v) { return Math.round(v); },
+        validate: function(v, is) { return !is.nan(v) && parseInt(v) >= 0; }
     },
     minWait: {
         defaultValue: 0,
         help: 'This must be a non-negative number.',
-        transform: v => Math.round(v),
-        validate: (v, is) => !is.nan(v) && parseInt(v) >= 0
+        transform: function(v) { return v === Math.round(v); },
+        validate: function(v, is) { return !is.nan(v) && parseInt(v) >= 0; }
     },
     responseArn: {
         defaultValue: '',
         help: 'This must be a string.',
-        validate: (v, is) => is.string(v)
+        validate: function(v, is) { return is.string(v); }
     },
     topicArn: {
         required: true,
         help: 'This must be a non-empty string.',
-        validate: (v, is) => is.string(v) && v.length > 0
+        validate: function(v, is) { return is.string(v) && v.length > 0; }
     }
 });
 
@@ -64,17 +64,17 @@ exports.server = Schemata({
     endpoint: {
         defaultValue: '',
         help: 'If set, the endpoint must begin with http or https and define the entire url endpoint.',
-        validate: (v, is) => is.string(v) && (!v || /^https?:\/\//i.test(v))
+        validate: function(v, is) { return is.string(v) && (!v || /^https?:\/\//i.test(v)); }
     },
     port: {
         defaultValue: 0,
         help: 'The port must be a non-negative number.',
-        validate: (v, is) => !is.nan(v) && v >= 0
+        validate: function(v, is) { return !is.nan(v) && v >= 0; }
     },
     tunnel: {
         defaultValue: false,
         help: 'Set to true to enable tunneling with defaults, otherwise specify and ngrok configuration object.',
-        validate: (v, is) => is.boolean(v) || is.object(v)
+        validate: function(v, is) { return is.boolean(v) || is.object(v); }
     }
 });
 

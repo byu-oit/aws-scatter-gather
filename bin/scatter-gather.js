@@ -27,7 +27,7 @@ const Req = Log('SCATHER_REQUEST');
 const Res = Log('SCATHER_RESPONSE');
 
 /**
- * Create an aggregator function that requests can be passed through.
+ * Create an aggregator function that can be called to make scatter-gather requests.
  * @param {object} configuration
  * @returns {aggregator}
  */
@@ -37,12 +37,12 @@ exports.aggregator = function(configuration) {
     const gatherers = [];
 
     // subscribe the aggregator to the topic arn
-    const subscribed = Subscriptions.subscribe(responseArn, config.functionName, runGatherers).then(() => true);
+    const subscribed = Subscriptions.subscribe(responseArn, config.functionName, runGatherers).then(fnTrue);
 
     // define the aggregator function
     function aggregator(data, callback) {
         const promise = aggregator.subscribed
-            .then(subscribed => {
+            .then(function(subscribed) {
                 if (!subscribed) throw Error('Request aggregator has been unsubscribed. It will no longer gather requests.');
 
                 const attributes = {
@@ -80,7 +80,7 @@ exports.aggregator = function(configuration) {
                 gatherers.push(active);
 
                 // remove active data once promise is not pending
-                deferred.promise.finally(() => {
+                deferred.promise.finally(function() {
                     const index = gatherers.indexOf(active);
                     gatherers.slice(index, 1);
                 });
@@ -98,7 +98,7 @@ exports.aggregator = function(configuration) {
                     });
 
                     // process each record and store
-                    records.forEach(record => {
+                    records.forEach(function(record) {
                         const senderName = record.attributes.ScatherFunctionName;
 
                         // delete reference from the wait map
@@ -126,15 +126,15 @@ exports.aggregator = function(configuration) {
 
     // run all gatherers that are active
     function runGatherers(event) {
-        gatherers.forEach(item => item.gatherer(event));
+        gatherers.forEach(function(item) { item.gatherer(event) });
     }
     
     // unsubscribe the aggregator
     function unsubscribe() {
         const promises = [];
-        gatherers.forEach(item => promises.push(item.promise.catch(() => undefined)));
+        gatherers.forEach(function(item) { promises.push(item.promise.catch(fnUndefined)) });
         return Promise.all(promises)
-            .then(() => {
+            .then(function() {
                 aggregator.subscribed = Promise.resolve(false);
                 return Subscriptions.unsubscribe(responseArn, runGatherers);
             });
@@ -161,52 +161,49 @@ exports.response = function(handler) {
         // validate the context
         context = schemas.context.normalize(context || {});
 
-        EventRecord.extractScatherRecords(event, r => r.attributes.ScatherDirection === 'request').forEach(record => {
-            const deferred = defer();
-            promises.push(deferred.promise);
-
-            // callback paradigm
-            if (handlerTakesCallback) {
-                handler(record.message, record.attributes, function(err, data) {
-                    if (err) return deferred.reject(err);
-                    deferred.resolve(data);
-                });
-
-            // promise paradigm
-            } else {
-                try {
-                    const result = handler(record.message, record.attributes);
-                    deferred.resolve(result);
-                } catch (err) {
-                    deferred.reject(err);
-                }
-            }
-
-            // publish an event with the response
-            deferred.promise
-                .then(message => {
-                    const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
-                        ScatherDirection: 'response',
-                        ScatherFunctionName: context.functionName,
-                        ScatherResponseArn: record.attributes.ScatherResponseArn,
-                        ScatherRequestId: record.attributes.ScatherRequestId
+        EventRecord.extractScatherRecords(event, function(r) { return r.attributes.ScatherDirection === 'request'; })
+            .forEach(function(record) {
+                const deferred = defer();
+                promises.push(deferred.promise);
+    
+                // callback paradigm
+                if (handlerTakesCallback) {
+                    handler(record.message, record.attributes, function(err, data) {
+                        if (err) return deferred.reject(err);
+                        deferred.resolve(data);
                     });
-                    EventInterface.fire(EventInterface.PUBLISH, event);
-                    Res.info('Sent response for ' + record.attributes.ScatherRequestId +
-                        ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
-                });
-
-        });
+    
+                // promise paradigm
+                } else {
+                    try {
+                        const result = handler(record.message, record.attributes);
+                        deferred.resolve(result);
+                    } catch (err) {
+                        deferred.reject(err);
+                    }
+                }
+    
+                // publish an event with the response
+                deferred.promise
+                    .then(function(message) {
+                        const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
+                            ScatherDirection: 'response',
+                            ScatherFunctionName: context.functionName,
+                            ScatherResponseArn: record.attributes.ScatherResponseArn,
+                            ScatherRequestId: record.attributes.ScatherRequestId
+                        });
+                        EventInterface.fire(EventInterface.PUBLISH, event);
+                        Res.info('Sent response for ' + record.attributes.ScatherRequestId +
+                            ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
+                    });
+    
+            });
 
         // get a promise that all records have been processed
         const promise = Promise.all(promises);
 
         // respond to callback or promise paradigm
-        if (hasCallback) {
-            promise.then(results => callback(null, results), err => callback(err, null));
-        } else {
-            return promise;
-        }
+        return defer.paradigm(promise, callback);
     };
 };
 
@@ -230,37 +227,10 @@ function callbackArguments(callback) {
 
 
 
-
-
-
-
-
-
-
-/**
- * Build an object that represents the parameters to publish to an SNS Topic.
- * @param topicArn
- * @param [responseArn]
- * @returns {object}
- */
-function buildRequestSnsParams(topicArn, responseArn) {
-    const isObject = typeof event === 'object';
-
-    const context = {
-        json: isObject,
-        responseArn: responseArn || topicArn,
-        requestId: uuid()
-    };
-
-    return {
-        Message: isObject ? JSON.stringify(event) : event,
-        MessageAttributes: {
-            ScatherRequest: {
-                DataType: 'String',
-                StringValue: JSON.stringify(context)
-            }
-        },
-        TopicArn: topicArn
-    };
+function fnTrue() {
+    return true;
 }
 
+function fnUndefined() {
+    return undefined;
+}

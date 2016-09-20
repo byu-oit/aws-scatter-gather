@@ -20,11 +20,11 @@ const uuid              = require('uuid').v4;
 
 exports.extractScatherRecords = function(event, filter) {
     const results = [];
-    if (typeof filter !== 'function') filter = () => true;
+    if (typeof filter !== 'function') filter = function() { return true; }
     if (event.hasOwnProperty('Records')) {
         event.Records.forEach(function(record) {
             if (record.Sns) {
-                const o = exports.decodeMessage(record.Sns);
+                const o = exports.decodeMessage(record.Sns.Message);
                 if (filter(o, record)) results.push(o);
             }
         });
@@ -53,23 +53,22 @@ exports.getResponseParameters = function(err, data, name, responseId, topicArn) 
 };
 
 exports.createNotificationEvent = function(topicArn, message, messageAttributes) {
-    const o = preProcessEventMessage(message, messageAttributes);
     return {
         Type: 'Notification',
         MessageId: uuid(),
         TopicArn: topicArn,
-        Message: o.message,
+        Message: preProcessEventMessage(message, messageAttributes),
+        MessageAttributes: {},
         Timestamp: new Date().toISOString(),
         SignatureVersion: '',
         Signature: '',
         SigningCertURL: '',
-        UnsubscribeURL: '',
-        MessageAttributes: o.messageAttributes
+        UnsubscribeURL: ''
     };
 };
 
 exports.createRecordEventFromNotifcation = function(event) {
-    if (!event || event.Type !== 'Notification') throw Error('Canot create record event from invalid notification event.');
+    if (!event || event.Type !== 'Notification') throw Error('Cannot create record event from invalid notification event.');
     return {
         Records: [
             {
@@ -80,95 +79,42 @@ exports.createRecordEventFromNotifcation = function(event) {
                     SignatureVersion: event.SignatureVersion,
                     Timestamp: event.Timestamp,
                     Signature: event.Signature,
-                    SigningCertUrl: event.SigningCertUrl,
+                    SigningCertUrl: event.SigningCertURL,
                     MessageId: event.MessageId,
                     Message: event.Message,
                     MessageAttributes: event.MessageAttributes,
                     Type: "Notification",
-                    UnsubscribeUrl: '',
+                    UnsubscribeUrl: event.UnsubscribeURL,
                     TopicArn: event.TopicArn,
                     Subject: ''
                 }
             }
         ]
     }
-}
+};
 
 exports.createPublishEvent = function(topicArn, message, messageAttributes) {
-    const o = preProcessEventMessage(message, messageAttributes);    
     return {
-        Message: o.message,
-        MessageAttributes: o.messageAttributes,
+        Message: preProcessEventMessage(message, messageAttributes),
         TopicArn: topicArn
     };
 };
 
-exports.encodeAttributes = function(object) {
-    const result = {};
-    Object.keys(object).forEach(key => {
-        const value = object[key];
-        if (typeof value === 'number') {
-            result[key] = {
-                DataType: 'Number',
-                StringValue: value.toString()
-            }
-        } else if (value instanceof Buffer) {
-            result[key] = {
-                DataType: 'Binary',
-                StringValue: value.toString()
-            }
-        } else if (typeof value !== 'undefined') {
-            result[key] = {
-                DataType: 'String',
-                StringValue: value.toString()
-            }
-        }
-    });
-    return result;
-};
-
-exports.decodeAttributes = function(attributes) {
-    const result = {};
-    Object.keys(attributes).forEach(key => {
-        const item = attributes[key];
-        switch (item.DataType) {
-            case 'String':
-                result[key] = item.StringValue;
-                break;
-            case 'Number':
-                result[key] = /\./.test(item.StringValue) ? parseFloat(item.StringValue) : parseInt(item.StringValue);
-                break;
-            case 'Binary':
-                result[key] = new Buffer(item.BinaryValue);
-        }
-    });
-    return result;
-};
-
-exports.decodeMessage = function(snsBody) {
-    const attributes = exports.decodeAttributes(snsBody.MessageAttributes);
-    return {
-        attributes: attributes,
-        hash: attributes.ScatherHash,
-        message: JSON.parse(snsBody.Message).Message
+exports.decodeMessage = function(message) {
+    if (message.substr(0, 6) === 'AWSSG:') {
+        message = message.substr(6);
+        return parseJson(message);
     }
 };
 
 function preProcessEventMessage(message, messageAttributes) {
-    if (!messageAttributes) messageAttributes = {};
-    messageAttributes = exports.encodeAttributes(messageAttributes);
-
-    message = JSON.stringify({ Message: message });
-
-    messageAttributes.ScatherHash = {
-        DataType: 'String',
-        StringValue: crypto.createHash('md5').update(message).digest("hex")
-    };
-    
-    return {
-        message: message,
-        messageAttributes: messageAttributes
-    }
+    const messageStr = typeof message === 'object' ? JSON.stringify(message) : message.toString();
+    const hash = crypto.createHash('md5').update(messageStr).digest("hex")
+    return 'AWSSG:' + JSON.stringify({
+        attributes: messageAttributes || {},
+        hash: hash,
+        message: message
+    });
 }
 
 function parseJson(json) {
