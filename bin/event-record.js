@@ -28,7 +28,7 @@ exports.extractScatherRecords = function(event, filter) {
         event.Records.forEach(function(record) {
             if (record.Sns) {
                 const o = exports.decodeMessage(record.Sns.Message);
-                if (filter(o, record)) results.push(o);
+                if (o && filter(o, record)) results.push(o);
             }
         });
     }
