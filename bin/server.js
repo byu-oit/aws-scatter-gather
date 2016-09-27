@@ -23,7 +23,7 @@ const EventInterface    = require('./event-interface');
 const EventRecord       = require('./event-record');
 const Graceful          = require('node-graceful');
 const Log               = require('./log')('SERVER');
-const ngrok             = require('ngrok');
+const ngrok             = requireIfExists('ngrok');
 const Promise           = require('bluebird');
 const schemas           = require('./schemas');
 
@@ -154,8 +154,8 @@ function * start(config) {
         stopper.push({ args: [], aysnc: false, callback: server.close, context: server, message: 'Server connection closed' });
         Log.info('Server listening on port ' + server.address().port);
 
-        // start ngrock if enabled
-        if (config.tunnel) {
+        // start ngrok if enabled
+        if (ngrok && config.tunnel) {
             let tunnel = typeof config.tunnel === 'object' ? Object.assign({}, config.tunnel) : {};
             tunnel.addr = server.address().port;
             config.endpoint = yield connectNgrok(tunnel);
@@ -190,7 +190,7 @@ function * stop() {
             return Promise.reject(err);
         }
     }
-    ngrok.kill();
+    if (ngrok) ngrok.kill();
 }
 
 /**
@@ -346,6 +346,20 @@ function connectNgrok(config) {
         deferred.resolve(url);
     });
     return deferred.promise;
+}
+
+/**
+ * Get the module if it exists, otherwise get null.
+ * @param {string} name
+ * @returns {*}
+ */
+function requireIfExists(name) {
+    try {
+        return require(name);
+    } catch (e) {
+        if (e.code === 'MODULE_NOT_FOUND') return null;
+        throw e;
+    }
 }
 
 /**
