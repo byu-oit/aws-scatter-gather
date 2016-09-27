@@ -18,6 +18,9 @@
 const crypto            = require('crypto');
 const uuid              = require('uuid').v4;
 
+const rxTopicArn = /^arn:aws:sns:[\s\S]+?:\d+:[\s\S]+?$/;
+
+
 exports.extractScatherRecords = function(event, filter) {
     const results = [];
     if (typeof filter !== 'function') filter = function() { return true; }
@@ -50,6 +53,10 @@ exports.getResponseParameters = function(err, data, name, responseId, topicArn) 
     };
 
     return exports.createPublishEvent(topicArn, message, messageAttributes);
+};
+
+exports.isValidAwsTopicArn = function(topicArn) {
+    return rxTopicArn.test(topicArn);
 };
 
 exports.createNotificationEvent = function(topicArn, message, messageAttributes) {

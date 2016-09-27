@@ -20,6 +20,7 @@ const bodyParser        = require('body-parser');
 const defer             = require('./defer');
 const express           = require('express');
 const EventInterface    = require('./event-interface');
+const EventRecord       = require('./event-record');
 const Graceful          = require('node-graceful');
 const Log               = require('./log')('SERVER');
 const ngrok             = require('ngrok');
@@ -279,6 +280,12 @@ function awsNotification() {
  * @returns {Promise}
  */
 function awsSubscribe(sns, topicArn, endpoint) {
+    // validate the topic arn
+    if (!EventRecord.isValidAwsTopicArn(topicArn)) {
+        Log.warn('The server cannot subscribe to an invalid AWS Topic Arn: ' + topicArn);
+        return Promise.resolve();
+    }
+
     // if already subscribed then return now
     const subscriptionArn = confirmedSubscriptions[topicArn];
     if (subscriptionArn) return Promise.resolve(subscriptionArn);
