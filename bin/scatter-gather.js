@@ -161,7 +161,7 @@ exports.response = function(handler) {
         // validate the context
         context = schemas.context.normalize(context || {});
 
-        console.log(event);
+        Res.log(event);
 
         const records = EventRecord.extractScatherRecords(event, function(r) {
             return r.attributes.ScatherDirection === 'request';
@@ -206,7 +206,7 @@ exports.response = function(handler) {
         // get a promise that all records have been processed
         const promise = Promise.all(promises);
         promise.then(function() {
-            console.log('Responded to ' + records.length + ' records');
+            Res.log('Responded to ' + records.length + ' records');
         });
 
         // respond to callback or promise paradigm
