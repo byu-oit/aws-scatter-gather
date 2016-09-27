@@ -156,7 +156,6 @@ exports.response = function(handler) {
     const handlerTakesCallback = callbackArguments(handler).length >= 3;
     return function(event, context, callback) {
         const promises = [];
-        const hasCallback = typeof arguments[2] === 'function';
 
         // validate the context
         context = schemas.context.normalize(context || {});
