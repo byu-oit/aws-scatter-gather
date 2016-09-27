@@ -49,7 +49,7 @@ function findIndex(topicArn, handler) {
 }
 
 function onNotification(event) {
-    if (event && event.Type === 'Notification') {
+    if (event && event.Type === 'Notification' && subscriptions[event.TopicArn]) {        
         subscriptions[event.TopicArn].forEach(function(item) {
             const data = EventRecord.createRecordEventFromNotifcation(event);
             item.handler(data, { functionName: item.functionName }, noop);
