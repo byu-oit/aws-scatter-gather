@@ -161,14 +161,14 @@ exports.response = function(handler) {
         // validate the context
         context = schemas.context.normalize(context || {});
 
-        Res.info(event);
-
         const records = EventRecord.extractScatherRecords(event, function(r) {
             return r.attributes.ScatherDirection === 'request';
         });
         records.forEach(function(record) {
             const deferred = defer();
             promises.push(deferred.promise);
+
+            Res.info('Responding to event data: ' + record.message);
 
             // callback paradigm
             if (handlerTakesCallback) {
