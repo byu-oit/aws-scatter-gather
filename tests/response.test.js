@@ -15,10 +15,27 @@
  *    limitations under the License.
  **/
 'use strict';
-const Scather       = require('../bin/scatter-gather');
+const expect            = require('chai').expect;
+const response          = require('../index').response;
 
-const scather = Scather({});
+describe('Scather.response', function() {
+    
+    it('is a function', function() {
+        expect(response).to.be.a('function');
+    });
 
-exports.increment = scather.response(function(event, context, callback) {
-    callback(null, event + 1);
+    it('throw an error if the first parameter is not a function', function() {
+        expect(function() { response(); }).to.throw(Error);
+    });
+    
+    it('returns a function', function() {
+        expect(response(noop)).to.be.a('function');
+    });
+    
+    describe('returned function', function() {
+        
+    });
+    
 });
+
+function noop() {}
