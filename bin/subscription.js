@@ -85,11 +85,9 @@ function onPublish(params) {
  * @param {string} topicArn
  * @param {string} functionName
  * @param {function} handler
- * @param {function} [callback]
- * @returns {Promise|undefined}
  */
-function subscribe(topicArn, functionName, handler, callback) {
-    if (typeof handler !== 'function') return Promise.reject(Error('Can only subscribe with functions. Received: ' + handler));
+function subscribe(topicArn, functionName, handler) {
+    if (typeof handler !== 'function') throw Error('Can only subscribe with functions. Received: ' + handler);
     if (!subscriptions.hasOwnProperty(topicArn)) subscriptions[topicArn] = [];
 
     const index = findIndex(topicArn, handler);
@@ -110,9 +108,8 @@ function subscribe(topicArn, functionName, handler, callback) {
  * Unsubscribe a handler from the topic
  * @param {string} topicArn
  * @param {function} handler
- * @param {function} [callback]
  */
-function unsubscribe(topicArn, handler, callback) {
+function unsubscribe(topicArn, handler) {
     if (subscriptions.hasOwnProperty(topicArn)) {
         const index = findIndex(topicArn, handler);
         const item = subscriptions[topicArn][index] || null;
@@ -132,8 +129,8 @@ function unsubscribe(topicArn, handler, callback) {
         Log.info('Already disabled for topic ' + topicArn);
     }
 
-    // if someone else still has a subscription to this topic then return, otherwise unsubscribe the server too
-    if (subscriptions.hasOwnProperty(topicArn)) return defer.paradigm(Promise.resolve(), callback);
+    // if there are no other subscriptions then delete the array
+    if (subscriptions[topicArn].length === 0) delete subscriptions[topicArn];
 }
 
 function noop() {}
