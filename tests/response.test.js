@@ -160,7 +160,6 @@ describe('Scather.response', function() {
             });
         });
         
-        
     });
     
 });
