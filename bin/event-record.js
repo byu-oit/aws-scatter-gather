@@ -114,6 +114,8 @@ exports.decodeMessage = function(message) {
     }
 };
 
+exports.preProcessEventMessage = preProcessEventMessage;
+
 function preProcessEventMessage(message, messageAttributes) {
     const messageStr = typeof message === 'object' ? JSON.stringify(message) : message.toString();
     const hash = crypto.createHash('md5').update(messageStr).digest("hex")

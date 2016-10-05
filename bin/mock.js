@@ -15,9 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
+const EventRecord       = require('./event-record');
 const uuid              = require('uuid').v4;
 
-exports.snsEvent = function(topicArn, message) {
+exports.requestEvent = function(topicArn, message, attributes) {
     return {
         Records: [
             {
@@ -30,7 +31,7 @@ exports.snsEvent = function(topicArn, message) {
                     Signature: '',
                     SigningCertUrl: '',
                     MessageId: uuid(),
-                    Message: message,
+                    Message: EventRecord.preProcessEventMessage(message, attributes),
                     MessageAttributes: {},
                     Type: "Notification",
                     UnsubscribeUrl: '',
