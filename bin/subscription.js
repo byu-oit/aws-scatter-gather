@@ -104,9 +104,6 @@ function subscribe(topicArn, functionName, handler, callback) {
     } else {
         Log.info('Already enabled ' + (functionName || '<anonymous>') + ' for topic ' + topicArn);
     }
-
-    // create a server subscription
-    return defer.paradigm(Server.subscribe(topicArn).then(noop), callback);
 }
 
 /**
@@ -137,7 +134,6 @@ function unsubscribe(topicArn, handler, callback) {
 
     // if someone else still has a subscription to this topic then return, otherwise unsubscribe the server too
     if (subscriptions.hasOwnProperty(topicArn)) return defer.paradigm(Promise.resolve(), callback);
-    return defer.paradigm(Server.unsubscribe(topicArn), callback);
 }
 
 function noop() {}

@@ -60,8 +60,12 @@ exports.request = Schemata({
     }
 });
 
-exports.server = Schemata({
-    endpoint: {
+exports.middleware = Schemata({
+    passThrough: {
+        defaultValue: false,
+        transform: function(v) { return !!v; }
+    }
+    /*endpoint: {
         defaultValue: '',
         help: 'If set, the endpoint must begin with http or https and define the entire url endpoint.',
         validate: function(v, is) { return is.string(v) && (!v || /^https?:\/\//i.test(v)); }
@@ -75,7 +79,7 @@ exports.server = Schemata({
         defaultValue: false,
         help: 'Set to true to enable tunneling with defaults, otherwise specify and ngrok configuration object.',
         validate: function(v, is) { return is.boolean(v) || is.object(v); }
-    }
+    }*/
 });
 
 function isArrayOfStrings(v) {

@@ -31,10 +31,7 @@ module.exports = {
     EventInterface: EventInterface,
     Logger: Log,
     response: Scather.response,
-    server: {
-        start: Server.start,
-        stop: Server.stop
-    },
+    server: Server,
     subscribe: Subscription.subscribe,
     unsubscribe: Subscription.unsubscribe
 };
