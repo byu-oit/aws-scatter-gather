@@ -37,91 +37,88 @@ exports.aggregator = function(configuration) {
     const gatherers = [];
 
     // subscribe the aggregator to the topic arn
-    const subscribed = Subscriptions.subscribe(responseArn, config.functionName, runGatherers).then(fnTrue);
+    Subscriptions.subscribe(responseArn, config.functionName, runGatherers);
 
     // define the aggregator function
     function aggregator(data, callback) {
-        const promise = aggregator.subscribed
-            .then(function(subscribed) {
-                if (!subscribed) throw Error('Request aggregator has been unsubscribed. It will no longer gather requests.');
+        if (!aggregator.subscribed) {
+            return Promise.reject(Error('Request aggregator has been unsubscribed. It will no longer gather requests.'));
+        }
 
-                const attributes = {
-                    ScatherDirection: 'request',
-                    ScatherFunctionName: config.functionName,
-                    ScatherResponseArn: responseArn,
-                    ScatherRequestId: uuid()
-                };
-                const deferred = defer();
-                const event = EventRecord.createPublishEvent(config.topicArn, data, attributes);
-                const missing = config.expects.slice(0);
-                const result = {};
-                var minTimeoutReached = false;
+        const attributes = {
+            ScatherDirection: 'request',
+            ScatherFunctionName: config.functionName,
+            ScatherResponseArn: responseArn,
+            ScatherRequestId: uuid()
+        };
+        const deferred = defer();
+        const event = EventRecord.createPublishEvent(config.topicArn, data, attributes);
+        const missing = config.expects.slice(0);
+        const result = {};
+        var minTimeoutReached = false;
 
-                // if minimum delay is reached and nothing is missing then resolve
-                setTimeout(function() {
-                    minTimeoutReached = true;
-                    if (missing.length === 0 && deferred.promise.isPending()) deferred.resolve(result);
-                }, config.minWait);
+        // if minimum delay is reached and nothing is missing then resolve
+        setTimeout(function() {
+            minTimeoutReached = true;
+            if (missing.length === 0 && deferred.promise.isPending()) deferred.resolve(result);
+        }, config.minWait);
 
-                // if maximum delay is reached then resolve
-                setTimeout(function() {
-                    if (deferred.promise.isPending()) deferred.resolve(result);
-                }, config.maxWait);
+        // if maximum delay is reached then resolve
+        setTimeout(function() {
+            if (deferred.promise.isPending()) deferred.resolve(result);
+        }, config.maxWait);
 
-                // publish the request event
-                EventInterface.fire(EventInterface.PUBLISH, event);
-                Req.info('Sent request ' + attributes.ScatherRequestId + ' to topic ' + config.topicArn + ' with data: ' + data);
+        // publish the request event
+        EventInterface.fire(EventInterface.PUBLISH, event);
+        Req.info('Sent request ' + attributes.ScatherRequestId + ' to topic ' + config.topicArn + ' with data: ' + data);
 
-                // store active data
-                const active = {
-                    gatherer: gatherer,
-                    promise: deferred.promise
-                };
-                gatherers.push(active);
+        // store active data
+        const active = {
+            gatherer: gatherer,
+            promise: deferred.promise
+        };
+        gatherers.push(active);
 
-                // remove active data once promise is not pending
-                deferred.promise.finally(function() {
-                    const index = gatherers.indexOf(active);
-                    gatherers.slice(index, 1);
-                });
+        // remove active data once promise is not pending
+        deferred.promise.finally(function() {
+            const index = gatherers.indexOf(active);
+            gatherers.slice(index, 1);
+        });
 
-                // define the gatherer
-                function gatherer(event) {
+        // define the gatherer
+        function gatherer(event) {
 
-                    // if already resolved or not subscribed then exit now
-                    if (!deferred.promise.isPending()) return;
+            // if already resolved or not subscribed then exit now
+            if (!deferred.promise.isPending()) return;
 
-                    // pull records out of the event that a responses to the request event
-                    const records = EventRecord.extractScatherRecords(event, function(data, record) {
-                        return data.attributes.ScatherDirection === 'response' &&
-                            data.attributes.ScatherRequestId === attributes.ScatherRequestId;
-                    });
-
-                    // process each record and store
-                    records.forEach(function(record) {
-                        const senderName = record.attributes.ScatherFunctionName;
-
-                        // delete reference from the wait map
-                        const index = missing.indexOf(senderName);
-                        if (index !== -1) missing.splice(index, 1);
-
-                        // store the result
-                        result[senderName] = record.message;
-
-                        Req.info('Received response to request ' + attributes.ScatherRequestId + ' from ' + senderName);
-                    });
-
-                    // all expected responses received and min timeout passed, so resolve the deferred promise
-                    if (missing.length === 0 && minTimeoutReached) {
-                        deferred.resolve(result);
-                    }
-                }
-
-                return deferred.promise;
+            // pull records out of the event that a responses to the request event
+            const records = EventRecord.extractScatherRecords(event, function(data, record) {
+                return data.attributes.ScatherDirection === 'response' &&
+                    data.attributes.ScatherRequestId === attributes.ScatherRequestId;
             });
 
+            // process each record and store
+            records.forEach(function(record) {
+                const senderName = record.attributes.ScatherFunctionName;
+
+                // delete reference from the wait map
+                const index = missing.indexOf(senderName);
+                if (index !== -1) missing.splice(index, 1);
+
+                // store the result
+                result[senderName] = record.message;
+
+                Req.info('Received response to request ' + attributes.ScatherRequestId + ' from ' + senderName);
+            });
+
+            // all expected responses received and min timeout passed, so resolve the deferred promise
+            if (missing.length === 0 && minTimeoutReached) {
+                deferred.resolve(result);
+            }
+        }
+
         // use appropriate async paradigm
-        return defer.paradigm(promise, callback);
+        return defer.paradigm(deferred.promise, callback);
     }
 
     // run all gatherers that are active
@@ -135,13 +132,13 @@ exports.aggregator = function(configuration) {
         gatherers.forEach(function(item) { promises.push(item.promise.catch(fnUndefined)) });
         return Promise.all(promises)
             .then(function() {
-                aggregator.subscribed = Promise.resolve(false);
+                aggregator.subscribed = false;
                 return Subscriptions.unsubscribe(responseArn, runGatherers);
             });
     }
 
     // add some properties to the aggregator function
-    aggregator.subscribed = subscribed;
+    aggregator.subscribed = true;
     aggregator.unsubscribe = unsubscribe;
 
     return aggregator;
