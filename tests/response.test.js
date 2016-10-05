@@ -16,7 +16,10 @@
  **/
 'use strict';
 const expect            = require('chai').expect;
-const response          = require('../index').response;
+const Scather           = require('../index');
+
+const mock              = Scather.mock;
+const response          = Scather.response;
 
 describe('Scather.response', function() {
     
@@ -33,6 +36,32 @@ describe('Scather.response', function() {
     });
     
     describe('returned function', function() {
+        
+        describe('callback paradigm', function() {
+            const fn = response(function(message, attributes, callback) {
+                callback(null, message);
+            });
+            
+            it('returns nothing', function() {
+                const e = mock.snsEvent('echoArn', 'Hello');
+                const result = fn(e, { functionName: 'echo' }, noop);
+                expect(result).to.equal(undefined);
+            });
+
+            it('gets response through callback', function() {
+                const e = mock.snsEvent('echoArn', 'Hello');
+                fn(e, { functionName: 'echo' }, function(err, data) {
+                    expect(err).to.equal(null);
+                    expect(data).to.equal('Hello');
+                });
+            });
+            
+        });
+        
+        describe('promise paradigm', function() {
+            
+        });
+        
         
     });
     

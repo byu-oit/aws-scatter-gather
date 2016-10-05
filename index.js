@@ -21,6 +21,7 @@
 const EventInterface    = require('./bin/event-interface');
 const EventRecord       = require('./bin/event-record');
 const Log               = require('./bin/log');
+const Mock              = require('./bin/mock');
 const Scather           = require('./bin/scatter-gather');
 const Server            = require('./bin/server');
 const Subscription      = require('./bin/subscription');
@@ -30,6 +31,7 @@ module.exports = {
     decodeMessage: EventRecord.decodeMessage,
     EventInterface: EventInterface,
     Logger: Log,
+    mock: Mock,
     response: Scather.response,
     server: Server,
     subscribe: Subscription.subscribe,

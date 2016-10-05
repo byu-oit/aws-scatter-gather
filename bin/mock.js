@@ -34,7 +34,7 @@ exports.snsEvent = function(topicArn, message) {
                     MessageAttributes: {},
                     Type: "Notification",
                     UnsubscribeUrl: '',
-                    TopicArn: TopicArn,
+                    TopicArn: topicArn,
                     Subject: ''
                 }
             }
