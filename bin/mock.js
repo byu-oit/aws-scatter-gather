@@ -31,7 +31,7 @@ exports.requestEvent = function(topicArn, message, attributes) {
                     Signature: '',
                     SigningCertUrl: '',
                     MessageId: uuid(),
-                    Message: EventRecord.preProcessEventMessage(message, attributes),
+                    Message: EventRecord.preProcessEventMessage(message, Object.assign(attributes || {}, { ScatherDirection: 'request' })),
                     MessageAttributes: {},
                     Type: "Notification",
                     UnsubscribeUrl: '',
