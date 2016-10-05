@@ -174,10 +174,14 @@ exports.response = function(handler) {
 
             // callback paradigm
             if (handlerTakesCallback) {
-                handler(record.message, record.attributes, function(err, data) {
-                    if (err) return deferred.reject(err);
-                    deferred.resolve(data);
-                });
+                try {
+                    handler(record.message, record.attributes, function (err, data) {
+                        if (err) return deferred.reject(err);
+                        deferred.resolve(data);
+                    });
+                } catch (err) {
+                    deferred.reject(err);
+                }
 
             // promise paradigm
             } else {

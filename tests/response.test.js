@@ -38,21 +38,47 @@ describe('Scather.response', function() {
     describe('returned function', function() {
         
         describe('callback paradigm', function() {
-            const fn = response(function(message, attributes, callback) {
-                callback(null, message);
-            });
             
             it('returns nothing', function() {
-                const e = mock.snsEvent('echoArn', 'Hello');
+                const fn = response(echo);
+                const e = mock.snsEvent('callbackArn', 'Hello');
                 const result = fn(e, { functionName: 'echo' }, noop);
                 expect(result).to.equal(undefined);
             });
 
             it('gets response through callback', function() {
-                const e = mock.snsEvent('echoArn', 'Hello');
+                const fn = response(echo);
+                const e = mock.snsEvent('callbackArn', 'Hello');
                 fn(e, { functionName: 'echo' }, function(err, data) {
                     expect(err).to.equal(null);
                     expect(data).to.equal('Hello');
+                });
+            });
+
+            it('gets error through callback', function() {
+                const fn = response(error);
+                const e = mock.snsEvent('callbackArn', 'Hello');
+                fn(e, { functionName: 'error' }, function(err, data) {
+                    expect(err).to.be.instanceOf(Error);
+                    expect(data).to.equal(null);
+                });
+            });
+
+            it('error nullifies data', function() {
+                const fn = response(conflict);
+                const e = mock.snsEvent('callbackArn', 'Hello');
+                fn(e, { functionName: 'conflict' }, function(err, data) {
+                    expect(err).to.be.instanceOf(Error);
+                    expect(data).to.equal(null);
+                });
+            });
+
+            it('uncaught errors are caught', function() {
+                const fn = response(uncaught);
+                const e = mock.snsEvent('callbackArn', 'Hello');
+                fn(e, { functionName: 'uncaught' }, function(err, data) {
+                    expect(err).to.be.instanceOf(Error);
+                    expect(data).to.equal(null);
                 });
             });
             
@@ -67,4 +93,21 @@ describe('Scather.response', function() {
     
 });
 
+function conflict(message, attributes, callback) {
+    callback(Error('An error occurred'), message);
+}
+
+function echo(message, attributes, callback) {
+    callback(null, message);
+}
+
+function error(message, attributes, callback) {
+    callback(Error('An error occurred'), null);
+}
+
 function noop() {}
+
+function uncaught(message, attributes, callback) {
+    throw Error('Uncaught');
+    callback(null, message);
+}
