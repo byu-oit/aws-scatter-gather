@@ -216,7 +216,11 @@ exports.response = function(handler) {
         });
 
         // respond to callback or promise paradigm
-        return defer.paradigm(promise, callback);
+        if (handlerTakesCallback) {
+            promise.then(function(data) { callback(null, data); }, function(err) { callback(err, null); });
+        } else {
+            return promise;
+        }
     };
 };
 
