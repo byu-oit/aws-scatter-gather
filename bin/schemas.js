@@ -17,14 +17,6 @@
 'use strict';
 const Schemata          = require('object-schemata');
 
-exports.context = Schemata({
-    functionName: {
-        required: true,
-        help: 'This must be a non-empty string.',
-        validate: function(v, is) { return is.string(v) && v.length > 0; }
-    }
-});
-
 exports.request = Schemata({
     expects: {
         defaultValue: [],

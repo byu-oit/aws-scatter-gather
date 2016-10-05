@@ -161,7 +161,8 @@ exports.response = function(handler) {
         const promises = [];
 
         // validate the context
-        context = schemas.context.normalize(context || {});
+        if (!context || typeof context !== 'object') throw Error('Invalid context. Expected an object.');
+        if (!context.functionName || typeof context.functionName !== 'string') throw Error('Invalid context functionName. Value must be a non-empty string.');
 
         const records = EventRecord.extractScatherRecords(event, function(r) {
             return r.attributes.ScatherDirection === 'request';
