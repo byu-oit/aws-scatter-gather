@@ -153,6 +153,9 @@ exports.aggregator = function(configuration) {
  * @returns {Function}
  */
 exports.response = function(handler) {
+    // validate input parameters
+    if (typeof handler !== 'function') throw Error('Scather.response must be called with a function as its first parameter.');
+
     const handlerTakesCallback = callbackArguments(handler).length >= 3;
     return function(event, context, callback) {
         const promises = [];
