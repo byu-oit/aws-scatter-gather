@@ -128,9 +128,6 @@ function unsubscribe(topicArn, handler) {
     } else {
         Log.info('Already disabled for topic ' + topicArn);
     }
-
-    // if there are no other subscriptions then delete the array
-    if (subscriptions[topicArn].length === 0) delete subscriptions[topicArn];
 }
 
 function noop() {}
