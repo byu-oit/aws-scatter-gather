@@ -56,38 +56,30 @@ describe('Scather.aggregator', function() {
         fn.unsubscribe();
     });
 
-    describe('callback paradigm', function() {
-
-        it('returns nothing', function() {
-            const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
-            const returned = fn('foo', noop);
-            fn.unsubscribe();
-            expect(returned).to.equal(undefined);
-        });
-
+    it('callback paradigm returns nothing', function() {
+        const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
+        const returned = fn('foo', noop);
+        fn.unsubscribe();
+        expect(returned).to.equal(undefined);
     });
 
-    describe('promise paradigm', function() {
-
-        it('returns a Promise', function() {
-            const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
-            const returned = fn('foo');
-            fn.unsubscribe();
-            expect(typeof returned).to.equal('object');
-            expect(typeof returned.then).to.equal('function');
-        });
-
+    it('promise paradigm returns a Promise', function() {
+        const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
+        const returned = fn('foo');
+        fn.unsubscribe();
+        expect(typeof returned).to.equal('object');
+        expect(typeof returned.then).to.equal('function');
     });
 
-    it('completes when received all expected results', function() {
+    it('completes when received all expected results', function(done) {
         const fn = aggregator({ topicArn: 'echo', functionName: 'echo', expects: ['my-echo'], maxWait: 1500 });
         const start = Date.now();
-        return fn('foo')
-            .then(function(value) {
-                expect(value['my-echo']).to.equal('foo');
-                expect(Date.now() - start).to.be.lessThan(1500);
-                fn.unsubscribe();
-            });
+        return fn('foo', function(err, value) {
+            expect(value['my-echo']).to.equal('foo');
+            expect(Date.now() - start).to.be.lessThan(1500);
+            fn.unsubscribe();
+            done();
+        });
     });
 
     it('completes after minWait', function() {
