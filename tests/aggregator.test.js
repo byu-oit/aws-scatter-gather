@@ -54,6 +54,18 @@ describe('Scather.aggregator', function() {
 
     });
 
+    describe('promise paradigm', function() {
+
+        it('returns a Promise', function() {
+            const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
+            const returned = fn('foo');
+            fn.unsubscribe();
+            expect(typeof returned).to.equal('object');
+            expect(typeof returned.then).to.equal('function');
+        });
+
+    });
+
 });
 
 function noop() {}
