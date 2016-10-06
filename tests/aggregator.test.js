@@ -21,7 +21,6 @@ const Promise           = require('bluebird');
 const Scather           = require('../index');
 
 const aggregator        = Scather.aggregator;
-const mock              = Scather.mock;
 
 Promise.onPossiblyUnhandledRejection(noop);
 
@@ -39,7 +38,7 @@ describe('Scather.aggregator', function() {
         Scather.unsubscribe('echo', responseFn);
     });
 
-    
+
 
     it('returns a function', function() {
         const fn = aggregator({ topicArn: 'echo' });
@@ -79,6 +78,19 @@ describe('Scather.aggregator', function() {
         });
 
     });
+
+    it('completes when received all expected results', function() {
+        const fn = aggregator({ topicArn: 'echo', functionName: 'echo', expects: ['my-echo'], maxWait: 1500 });
+        const start = Date.now();
+        return fn('foo')
+            .then(function(value) {
+                expect(value['my-echo']).to.equal('foo');
+                expect(Date.now() - start).to.be.lessThan(1500);
+                fn.unsubscribe();
+            });
+    });
+
+
 
 });
 
