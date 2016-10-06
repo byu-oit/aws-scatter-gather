@@ -16,6 +16,7 @@
  **/
 'use strict';
 const expect            = require('chai').expect;
+const EventInterface    = require('../bin/event-interface');
 const Promise           = require('bluebird');
 const Scather           = require('../index');
 
@@ -29,6 +30,17 @@ describe('Scather.aggregator', function() {
     it('returns a function', function() {
         const fn = aggregator({ topicArn: 'echo' });
         expect(fn).to.be.a('function');
+        fn.unsubscribe();
+    });
+
+    it('subscribes to the topic arn', function(done) {
+        EventInterface.on(EventInterface.SUBSCRIBE, function(e) {
+            expect(e.functionName).to.equal('echo');
+            done();
+        });
+        const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
+        expect(fn).to.be.a('function');
+        fn.unsubscribe();
     });
 
 });
