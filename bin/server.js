@@ -16,6 +16,7 @@
  **/
 'use strict';
 const AWS               = require('aws-sdk');
+const defer             = require('./defer');
 const EventInterface    = require('./event-interface');
 const EventRecord       = require('./event-record');
 const Log               = require('./log')('SERVER');
@@ -83,7 +84,7 @@ function confirmSubscription(body) {
  * @returns {Function}
  */
 function middleware(configuration) {
-    const config = schemas.middleware.normalize(configuration);
+    const config = schemas.middleware.normalize(configuration || {});
 
     return function(req, res, next) {
 
@@ -131,7 +132,6 @@ function parseBody(req, callback) {
     req.on('end', function() {
         var err = null;
         var obj = null;
-        body = Buffer.concat(body).toString();
         try {
             obj = JSON.parse(body);
         } catch (err) {
@@ -206,7 +206,7 @@ function unsubscribe(topicArn) {
         };
         sns.unsubscribe(params, function (err) {
             EventInterface.fire(EventInterface.SNS, {
-                action: 'confirmSubscription',
+                action: 'unsubscribe',
                 error: err,
                 params: params,
                 result: data
