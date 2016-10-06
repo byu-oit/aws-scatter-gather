@@ -37,7 +37,7 @@ exports.request = Schemata({
     minWait: {
         defaultValue: 0,
         help: 'This must be a non-negative number.',
-        transform: function(v) { return v === Math.round(v); },
+        transform: function(v) { return Math.round(v); },
         validate: function(v, is) { return !is.nan(v) && parseInt(v) >= 0; }
     },
     responseArn: {
