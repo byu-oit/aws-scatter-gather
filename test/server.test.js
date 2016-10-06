@@ -15,31 +15,50 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS               = require('aws-sdk');
 const expect            = require('chai').expect;
 const express           = require('express');
 const Promise           = require('bluebird');
 const Scather           = require('../index');
+const uuid              = require('uuid').v4;
 
 const server = Scather.server;
 
 Promise.onPossiblyUnhandledRejection(noop);
 
 describe('Scather.server', function() {
+    const topicName = 'ScatherTest-' + uuid();
     var app;
+    var server;
 
     before(function(done) {
+        const promises = [];
+
+        // start an express server
         app = express();
         app.use(server.middleware());
-        app.listen(done);
+        promises.push(new Promise(function(resolve, reject) {
+            server = app.listen(function(err) {
+                if (err) return reject(err);
+                resolve(server)
+            });
+        }));
+
+        // create an sns topic
+        createSnsTopic(topicName)
     });
 
     after(function() {
-        app.close();
+        server.close();
+        return deleteSnsTopic(topicName);
     });
 
-    
-
+    it('can subscribe to sns topic', function() {
+        server.subscribe()
+    });
 
 });
+
+
 
 function noop() {}
