@@ -57,11 +57,9 @@ function onNotification(event) {
 }
 
 function onPublish(params) {
-    const state = Server.state;
-    const useAwsNotification = state === 'started' || state === 'starting';
 
     // if the aws object has credentials and the topic arn looks valid then publish the event to the SNS Topic
-    if (useAwsNotification && AWS.config.credentials && EventRecord.isValidAwsTopicArn(params.TopicArn)) {
+    if (AWS.config.credentials && EventRecord.isValidAwsTopicArn(params.TopicArn)) {
         const sns = new AWS.SNS();
         sns.publish(params, function(err, data) {
             EventInterface.fire(EventInterface.SNS, {
