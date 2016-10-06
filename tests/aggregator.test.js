@@ -26,6 +26,20 @@ const mock              = Scather.mock;
 Promise.onPossiblyUnhandledRejection(noop);
 
 describe('Scather.aggregator', function() {
+    var responseFn;
+
+    before(function() {
+        responseFn = Scather.response(function(data, attributes, callback) {
+            callback(null, data);
+        });
+        Scather.subscribe('echo', 'my-echo', responseFn);
+    });
+
+    after(function() {
+        Scather.unsubscribe('echo', responseFn);
+    });
+
+    
 
     it('returns a function', function() {
         const fn = aggregator({ topicArn: 'echo' });
