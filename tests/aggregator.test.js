@@ -90,7 +90,15 @@ describe('Scather.aggregator', function() {
             });
     });
 
-
+    it.only('completes after minWait', function() {
+        const start = Date.now();
+        const fn = aggregator({ topicArn: 'echo', functionName: 'echo', expects: ['my-echo'], maxWait: 5000, minWait: 2000 });
+        return fn('foo')
+            .then(function(value) {
+                expect(Date.now() - start).to.be.greaterThan(1999);
+                fn.unsubscribe();
+            });
+    })
 
 });
 
