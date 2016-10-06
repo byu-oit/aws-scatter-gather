@@ -102,6 +102,21 @@ describe('Scather.aggregator', function() {
             });
     });
 
+    it('ignores failed responses', function() {
+        const res = Scather.response(function(data, attributes, callback) {
+            throw Error('Fail');
+        });
+        Scather.subscribe('fail', 'myFail', res);
+
+        const agg = aggregator({ topicArn: 'fail', functionName: 'echo', expects: ['foobar'], maxWait: 1000 });
+        return agg('foo')
+            .then(function(value) {
+                expect(Object.keys(value).length).to.equal(0);
+                agg.unsubscribe();
+                Scather.unsubscribe('fail', res);
+            });
+    });
+
 });
 
 function noop() {}
