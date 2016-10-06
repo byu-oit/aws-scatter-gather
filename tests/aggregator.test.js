@@ -34,13 +34,24 @@ describe('Scather.aggregator', function() {
     });
 
     it('subscribes to the topic arn', function(done) {
-        EventInterface.on(EventInterface.SUBSCRIBE, function(e) {
+        EventInterface.once(EventInterface.SUBSCRIBE, function(e) {
             expect(e.functionName).to.equal('echo');
             done();
         });
         const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
         expect(fn).to.be.a('function');
         fn.unsubscribe();
+    });
+
+    describe('callback paradigm', function() {
+
+        it('returns nothing', function() {
+            const fn = aggregator({ topicArn: 'echo', functionName: 'echo' });
+            const returned = fn('foo', noop);
+            fn.unsubscribe();
+            expect(returned).to.equal(undefined);
+        });
+
     });
 
 });
