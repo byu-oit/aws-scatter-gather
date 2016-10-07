@@ -170,10 +170,14 @@ exports.response = function(handler) {
 
             Res.info('Responding to event data: ' + record.message);
 
+            // add attributes to context
+            const innerContext = Object.assign({}, context);
+            innerContext.scather = record.attributes;
+
             // callback paradigm
             if (handlerTakesCallback) {
                 try {
-                    handler(record.message, record.attributes, function (err, data) {
+                    handler(record.message, innerContext, function (err, data) {
                         if (err) return deferred.reject(err);
                         deferred.resolve(data);
                     });
@@ -184,7 +188,7 @@ exports.response = function(handler) {
             // promise paradigm
             } else {
                 try {
-                    const result = handler(record.message, record.attributes);
+                    const result = handler(record.message, innerContext);
                     deferred.resolve(result);
                 } catch (err) {
                     deferred.reject(err);
@@ -197,12 +201,12 @@ exports.response = function(handler) {
                     const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
                         ScatherDirection: 'response',
                         ScatherFunctionName: context.functionName,
-                        ScatherResponseArn: record.attributes.ScatherResponseArn,
-                        ScatherRequestId: record.attributes.ScatherRequestId
+                        ScatherResponseArn: innerContext.scather.ScatherResponseArn,
+                        ScatherRequestId: innerContext.scather.ScatherRequestId
                     });
                     EventInterface.fire(EventInterface.PUBLISH, event);
-                    Res.info('Sent response for ' + record.attributes.ScatherRequestId +
-                        ' to topic ' + record.attributes.ScatherResponseArn + ' with data: ' + message);
+                    Res.info('Sent response for ' + innerContext.scather.ScatherRequestId +
+                        ' to topic ' + innerContext.scather.ScatherResponseArn + ' with data: ' + message);
                 });
 
         });
