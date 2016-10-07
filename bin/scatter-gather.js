@@ -92,7 +92,7 @@ exports.aggregator = function(configuration) {
             if (!deferred.promise.isPending()) return;
 
             // pull records out of the event that a responses to the request event
-            const records = EventRecord.extractScatherRecords(event, function(data, record) {
+            const records = EventRecord.extractScatherRecords(event, function(data) {
                 return data.attributes.ScatherDirection === 'response' &&
                     data.attributes.ScatherRequestId === attributes.ScatherRequestId;
             });
@@ -146,14 +146,44 @@ exports.aggregator = function(configuration) {
 
 /**
  * Wrap a lambda function so that it only works on event records that represent scather requests.
+ * @param {object} [configuration]
  * @param {function} handler A function with signature: function (data, metadata [, callback ]). If the callback is omitted then the returned value will be used.
  * @returns {Function}
  */
-exports.response = function(handler) {
-    // validate input parameters
-    if (typeof handler !== 'function') throw Error('Scather.response must be called with a function as its first parameter.');
+exports.response = function(configuration, handler) {
+    var error;
 
-    const handlerTakesCallback = callbackArguments(handler).length >= 3;
+    // validate input parameters
+    if (arguments.length === 0) {
+        error = Error('Scather.response missing required handler parameter.');
+    } else if (arguments.length === 1) {
+        handler = arguments[0];
+    }
+    if (typeof handler !== 'function') error = Error('Scather.response missing required handler parameter.');
+
+    // normalize the configuration
+    var config;
+    try {
+        if (!configuration || typeof configuration !== 'object') configuration = {};
+        config = schemas.response.normalize(configuration);
+    } catch (e) {
+        error = e;
+    }
+
+    // define a function that will send the response
+    function sendResponse(direction, message, context) {
+        const event = EventRecord.createPublishEvent(innerContext.scather.ScatherResponseArn, message, {
+            ScatherDirection: direction,
+            ScatherFunctionName: context.functionName,
+            ScatherResponseArn: context.scather.ScatherResponseArn,
+            ScatherRequestId: context.scather.ScatherRequestId
+        });
+        EventInterface.fire(EventInterface.PUBLISH, event);
+        Res.info('Sent ' + direction + ' for ' + context.scather.ScatherRequestId +
+            ' to topic ' + context.scather.ScatherResponseArn + ' with data: ' + message);
+    }
+
+    const handlerTakesCallback = !error && callbackArguments(handler).length >= 3;
     return function(event, context, callback) {
         const promises = [];
 
@@ -174,8 +204,12 @@ exports.response = function(handler) {
             const innerContext = Object.assign({}, context);
             innerContext.scather = record.attributes;
 
+            // pre-run error
+            if (error) {
+                deferred.reject(error);
+
             // callback paradigm
-            if (handlerTakesCallback) {
+            } else if (handlerTakesCallback) {
                 try {
                     handler(record.message, innerContext, function (err, data) {
                         if (err) return deferred.reject(err);
@@ -197,17 +231,10 @@ exports.response = function(handler) {
 
             // publish an event with the response
             deferred.promise
-                .then(function(message) {
-                    const event = EventRecord.createPublishEvent(record.attributes.ScatherResponseArn, message, {
-                        ScatherDirection: 'response',
-                        ScatherFunctionName: context.functionName,
-                        ScatherResponseArn: innerContext.scather.ScatherResponseArn,
-                        ScatherRequestId: innerContext.scather.ScatherRequestId
-                    });
-                    EventInterface.fire(EventInterface.PUBLISH, event);
-                    Res.info('Sent response for ' + innerContext.scather.ScatherRequestId +
-                        ' to topic ' + innerContext.scather.ScatherResponseArn + ' with data: ' + message);
-                });
+                .then(
+                    function(message) { sendResponse('response', message, innerContext); },
+                    function(err) { if (config.development) sendResponse('response-error', err.stack, innerContext); }
+                );
 
         });
 
@@ -246,9 +273,6 @@ function callbackArguments(callback) {
 
 
 
-function fnTrue() {
-    return true;
-}
 
 function fnUndefined() {
     return undefined;
