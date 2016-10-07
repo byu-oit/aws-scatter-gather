@@ -124,7 +124,7 @@ exports.handler = function(event, context, callback) {
     // define the request configuration
     const aggregator = Scather.aggregator({
         expects: [ 'increment', 'double' ],
-        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
+        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX',
         topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
     });
 
@@ -132,7 +132,7 @@ exports.handler = function(event, context, callback) {
     aggregator(5, function(err, data) {
         // ... run some code ...
     });
-});
+};
 ```
 
 ## Without AWS Lambda
