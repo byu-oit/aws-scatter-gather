@@ -180,7 +180,7 @@ If you plan to do initial development on your local machine before moving them t
 
     - **my-project**
         - **aggregator**
-            - index.js *(similar to [aggregator example](#aws-lambda-aggregator-better))*
+            - index.js *(similar to [aggregator example](#aws-lambda-better-aggregator))*
             - package.json
         - **double**
             - index.js *(similar to [double example](#aws-lambda-double-response))*
