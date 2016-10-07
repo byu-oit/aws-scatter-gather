@@ -91,7 +91,7 @@ exports.aggregator = function(configuration) {
             // if already resolved or not subscribed then exit now
             if (!deferred.promise.isPending()) return;
 
-            // pull records out of the event that a responses to the request event
+            // pull records out of the event that are responses to the request event
             const records = EventRecord.extractScatherRecords(event, function(data) {
                 return data.attributes.ScatherDirection === 'response' &&
                     data.attributes.ScatherRequestId === attributes.ScatherRequestId;
@@ -99,16 +99,19 @@ exports.aggregator = function(configuration) {
 
             // process each record and store
             records.forEach(function(record) {
-                const senderName = record.attributes.ScatherFunctionName;
+                const attr = record.attributes;
+                const isError = attr.ScatherResponseError;
+                const senderName = attr.ScatherFunctionName;
 
                 // delete reference from the wait map
                 const index = missing.indexOf(senderName);
                 if (index !== -1) missing.splice(index, 1);
 
-                // store the result
-                result[senderName] = record.message;
+                // store the result (if it's not an error)
+                if (!isError) result[senderName] = record.message;
 
                 Req.info('Received response to request ' + attributes.ScatherRequestId + ' from ' + senderName);
+                if (isError) Req.warn('Response from ' + senderName + ' reporting an error: ' + record.message);
             });
 
             // all expected responses received and min timeout passed, so resolve the deferred promise
@@ -171,11 +174,12 @@ exports.response = function(configuration, handler) {
     }
 
     // define a function that will send the response
-    function sendResponse(direction, message, context) {
+    function sendResponse(isError, message, context) {
         const event = EventRecord.createPublishEvent(context.scather.ScatherResponseArn, message, {
-            ScatherDirection: direction,
+            ScatherDirection: 'response',
             ScatherFunctionName: context.functionName,
             ScatherResponseArn: context.scather.ScatherResponseArn,
+            ScatherResponseError: isError,
             ScatherRequestId: context.scather.ScatherRequestId
         });
         EventInterface.fire(EventInterface.PUBLISH, event);
@@ -232,8 +236,8 @@ exports.response = function(configuration, handler) {
             // publish an event with the response
             deferred.promise
                 .then(
-                    function(message) { sendResponse('response', message, innerContext); },
-                    function(err) { if (config.development) sendResponse('response-error', err.stack, innerContext); }
+                    function(message) { sendResponse(false, message, innerContext); },
+                    function(err) { if (config.development) sendResponse(true, err.stack, innerContext); }
                 );
 
         });
