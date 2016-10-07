@@ -193,7 +193,7 @@ If you plan to do initial development on your local machine before moving them t
 
     Be sure to include the `aws-sdk` and `aws-scatter-gather` packages as dependencies in each package.json file.
 
-2. If your computer is behind a NAT or a firewall, use [ngrok](https://ngrok.com/) or something similar to create a tunnel from the public internet to your local machine.
+2. If your computer is behind a NAT or a firewall and you want receive events from the remote AWS SNS then use [ngrok](https://ngrok.com/) or something similar to create a tunnel from the public internet to your local machine. Only do this if you want to receive events from AWS SNS because you'll already get local events.
 
 3. The orchestra.js should be something like this:
 
@@ -208,14 +208,16 @@ If you plan to do initial development on your local machine before moving them t
 
     // create a mock subscription for the responders
     const responseArn = 'arn:aws:sns:us-west-2:064824991063:TopicX';
-    Scather.mock.lambdaSubscribe(requestArn, 'double', double.handler);
-    Scather.mock.lambdaSubscribe(requestArn, 'increment', increment.handler);
+    Scather.local.subscribe(requestArn, 'double', double.handler);
+    Scather.local.subscribe(requestArn, 'increment', increment.handler);
 
     // execute the aggregator function
     aggregator.handler({}, {}, function(err, data) {
         console.log(err, data);
     });
     ```
+
+    The above example does not require you to have a network connection to AWS.
 
 4. Run your orchestra.js code in debug mode and use an inspector to troubleshoot errors.
 
@@ -225,7 +227,7 @@ If you plan to do initial development on your local machine before moving them t
 
 Create an aggregator function that can be called to start a scatter gather request.
 
-Creating an aggregator also creates a subscription to the `topicArn` or `responseArn` provided in the config parameter. To end that subscription see [aggregator.unsubscribe](#aggregator-unsubscribe).
+Creating an aggregator also creates a [local subscription](#local-subscriptions) to the `topicArn` or `responseArn` provided in the config parameter. To end that subscription use the `aggregator.unsubscribe()` function.
 
 Parameters
 
