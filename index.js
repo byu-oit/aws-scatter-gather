@@ -28,7 +28,6 @@ const Subscription      = require('./bin/subscription');
 
 module.exports = {
     aggregator: Scather.aggregator,
-    decodeMessage: EventRecord.decodeMessage,
     EventInterface: EventInterface,
     Logger: Log,
     mock: Mock,
