@@ -27,6 +27,7 @@ const confirmedSubscriptions = {};
 const unconfirmedSubscriptions = {};
 
 module.exports = {
+    enabled: true,
     middleware: middleware,
     subscribe: subscribe,
     unsubscribe: unsubscribe
@@ -98,7 +99,7 @@ function middleware(configuration) {
             req.body = body;
             switch (req.headers['x-amz-sns-message-type']) {
                 case 'Notification':
-                    EventInterface.fire(EventInterface.NOTIFICATION, body);
+                    if (module.exports.enabled) EventInterface.fire(EventInterface.NOTIFICATION, body);
                     break;
                 case 'SubscriptionConfirmation':
                     confirmSubscription(body);
