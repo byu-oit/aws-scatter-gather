@@ -24,7 +24,11 @@ const Server            = require('./bin/server');
 
 module.exports = {
     aggregator: Scather.aggregator,
-    EventInterface: EventInterface,
+    EventInterface: {
+        off: EventInterface.off,
+        on: EventInterface.on,
+        once: EventInterface.once
+    },
     Logger: Log,
     mock: Mock,
     response: Scather.response,
