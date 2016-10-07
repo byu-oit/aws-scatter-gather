@@ -21,7 +21,7 @@ exports.request = Schemata({
     expects: {
         defaultValue: [],
         help: 'This must be an array of strings.',
-        validate: function(v, is) { return isArrayOfStrings(v); }
+        validate: function(v) { return isArrayOfStrings(v); }
     },
     functionName: {
         defaultValue: '-',
@@ -49,6 +49,14 @@ exports.request = Schemata({
         required: true,
         help: 'This must be a non-empty string.',
         validate: function(v, is) { return is.string(v) && v.length > 0; }
+    }
+});
+
+exports.response = Schemata({
+    development: {
+        defaultValue: false,
+        help: 'This must be a boolean',
+        transform: function(v) { return !!v; }
     }
 });
 
