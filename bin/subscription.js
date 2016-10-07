@@ -20,7 +20,6 @@ const defer             = require('./defer');
 const EventInterface    = require('./event-interface');
 const EventRecord       = require('./event-record');
 const Log               = require('./log')('SUBSCRIPTION');
-const Server            = require('./server');
 
 module.exports = {
     subscribe: subscribe,
@@ -61,7 +60,7 @@ function onPublish(params) {
     // if the aws object has credentials and the topic arn looks valid then publish the event to the SNS Topic
     if (AWS.config.credentials && EventRecord.isValidAwsTopicArn(params.TopicArn)) {
         const sns = new AWS.SNS();
-        sns.publish(params, function(err, data) {
+        sns.publish(params, function (err, data) {
             EventInterface.fire(EventInterface.SNS, {
                 action: 'publish',
                 error: err,
@@ -69,13 +68,12 @@ function onPublish(params) {
                 result: data
             });
         });
+    }
 
     // repackage the publish event as a notification if not use AWS SNS Topics
-    } else {
-        const data = EventRecord.decodeMessage(params.Message);
-        const event = EventRecord.createNotificationEvent(params.TopicArn, data.message, data.attributes, 'Local');
-        EventInterface.fire(EventInterface.NOTIFICATION, event);
-    }
+    const data = EventRecord.decodeMessage(params.Message);
+    const event = EventRecord.createNotificationEvent(params.TopicArn, data.message, data.attributes, 'Local');
+    EventInterface.fire(EventInterface.NOTIFICATION, event);
 }
 
 /**
