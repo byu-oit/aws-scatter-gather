@@ -2,7 +2,11 @@
 
 The purpose of this module is to facilitate distributed computing while using a scatter gather design pattern with AWS SNS Topics.
 
-An **Aggregator** makes a request via AWS SNS that any number of **Value Object Generators** can respond to.
+An aggregator makes a request via AWS SNS that any number of listeners can respond to. The aggregator will compile the responses that are directed at it.
+
+Using this package, both the aggregator and responders can exist within long running processes or within short lived processes (like an AWS Lambda).
+
+**If you plan on using Lambdas then the Lambdas must have a role that allows for publishing to AWS SNS Topics.**
 
 ## Install
 
@@ -15,8 +19,8 @@ $ npm install aws-scatter-gather
 For this example, assume we have a single SNS Topic and three AWS lambdas that are subscribed to it:
 
 - **Aggregator** - Makes a request to other lambdas to do mathematical calculations on a number, and gathers responses.
-- **Increment** - A value object generator that accepts a request, adds `1` to the number, and sends a response back.
-- **Double** - A value object generator that accepts a request, doubles the number, and sends a response back.
+- **Increment** - A response generator that accepts a request, adds `1` to the number, and sends a response back.
+- **Double** - A response generator that accepts a request, doubles the number, and sends a response back.
 
 The following diagram outlines the basic flow of this information when using an AWS SNS Topic:
 
@@ -29,7 +33,7 @@ The following diagram outlines the basic flow of this information when using an 
 
 #### Code Examples
 
-**Aggregator**
+##### AWS Lambda Aggregator
 
 ```js
 const AWS       = require('aws-sdk');
@@ -38,49 +42,42 @@ const Scather   = require('aws-scatter-gather');
 exports.handler = function(event, context, callback) {
 
     // define the request configuration
-    const config = {
+    const aggregator = Scather.aggregator({
         expects: [ 'increment', 'double' ],
         topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-    };
+    });
 
     // make the request
-    Scather.request(5, config, function(err, data) {
+    aggregator(5, function(err, data) {
         if (err) {
             callback(err, null);
         } else {
-            // data: { increment: 6, double: 10 }
-            callback(null, data);
+            // ... run some code ...
+            callback(null, data);   // data: { increment: 6, double: 10 }
         }
     });
-
-    // Because we just return the data, the previous
-    // code block can be simplified to this:
-    // Scather.request(5, config, callback);
 });
 ```
 
-Note the comment at the end of the Aggregator example. Because we simply return the aggregated data to terminate the lambda, we could have called the lambda's callback function directly: `Scather.request(5, config, callback);`
-
-**Increment**
+##### AWS Lambda Increment Response
 
 ```js
 const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
-// define the SNS post handler
-exports.handler = Scather.response(function(data, meta, callback) {
+exports.handler = Scather.response(function(message, context, callback) {
     callback(null, data + 1);
 });
 ```
 
-**Double**
+##### AWS Lambda Double Response
 
 ```js
 const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
 // define the SNS post handler
-exports.handler = Scather.response(function(data, meta, callback) {
+exports.handler = Scather.response(function(message, context, callback) {
     callback(null, data * 2);
 });
 ```
@@ -100,8 +97,8 @@ For this example, assume we have two SNS Topics and three AWS lambdas.
 The three lambdas are:
 
 - **Aggregator** - Makes a request to other lambdas to do mathematical calculations on a number, and gathers responses.
-- **Increment** - A value object generator that accepts a request, adds `1` to the number, and sends a response back.
-- **Double** - A value object generator that accepts a request, doubles the number, and sends a response back.
+- **Increment** - A response generator that accepts a request, adds `1` to the number, and sends a response back.
+- **Double** - A response generator that accepts a request, doubles the number, and sends a response back.
 
 The following diagram outlines the flow of this information when using two AWS SNS Topics:
 
@@ -116,7 +113,7 @@ The following diagram outlines the flow of this information when using two AWS S
 
 The Increment and Double lambdas have no change to their code from the previous [Basic Example](#basic-example). The Aggregator lambda adds a `responseArn` property to it's configuration. The responding lambdas will automatically send their responses to the specified responseArn. That's the only code change.
 
-**Aggregator**
+##### AWS Lambda Better Aggregator
 
 ```js
 const AWS       = require('aws-sdk');
@@ -125,211 +122,145 @@ const Scather   = require('aws-scatter-gather');
 exports.handler = function(event, context, callback) {
 
     // define the request configuration
-    const config = {
+    const aggregator = Scather.aggregator({
         expects: [ 'increment', 'double' ],
         responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
         topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-    };
-
-    // make the request
-    Scather.request(5, config, callback);
-});
-```
-
-## Unsubscribed Machines
-
-If you are running code on a machine that does not already have a subscription to the AWS SNS Topic of interest then you'll need to create that subscription. Without the subscription you will not have two way communication. To create a subscription:
-
-- You must specify the SNS Topic Arn
-- The machine must be reachable by AWS, which means it must have a public endpoint.
-
-If your machine is being used only for development and you don't want to create a public endpoint to your machine then there is an option to [set up tunneling](#scather-subscribe) to make your machine reachable.
-
-[More About the Subscription API](#scather-subscribe)
-
-**Subscribe to SNS Topic**
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-const config = {
-    endpoint: 'http://public.endpoint.com',
-    topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
-};
-
-const sub = Scather.subscription(config);
-sub.start(function(err, data) {
-    if (err) {
-        console.error(err.stack);
-    } else {
-        console.log('Subscription ready');
-    }
-});
-```
-
-**Unsubscribe from an SNS Topic**
-
-When the machine shuts down, you might want to end the subscription too:
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-const config = {
-    topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
-};
-
-const sub = Scather.subscription(config);
-sub.end(function(err, data) {
-    if (err) {
-        console.error(err.stack);
-    } else {
-        console.log('Subscription ended');
-    }
-});
-```
-
-**Single Use Subscription**
-
-This example is a bit wasteful in that there is a lot of set up and tear down just to make a single request, but it shows how subscriptions can be used with a promise paradigm to run an aggregator.
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-const subConfig = {
-    endpoint: 'http://public.endpoint.com',
-    topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
-};
-
-const subscription = Scather.subscription(subConfig);
-subscription.start()
-    .then(function() {
-        const config = {
-            expects: [ 'increment', 'double' ],
-            responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
-            topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-        };
-
-        // make the request
-        return Scather.request(5, config);
-    })
-    .then(function(results) {
-        console.log(results);
-        return subscription.end();
     });
-```
-
-## Event Orchestration
-
-When you set up an AWS Lambda function to run based off of an SNS event you are using Amazon's orchestration to run your handler. If you are not using Amazon's orchestration, you can use Scather's orchestration instead.
-
-
-#### Why?
-
-You may want to do this if:
-
-1. You plan on getting the code running on a development machine prior to pushing it to AWS lambdas.
-2. You don't want to use the network yet.
-
-If you plan on putting development code into lambda's eventually, you may want to organize your file system so that each set of lambda code is within it's own directory. For example:
-
-- **my-project**
-    - **aggregator**
-        - index.js
-        - package.json
-    - **double**
-        - index.js
-        - package.json
-    - **increment**
-        - index.js
-        - package.json
-    - orchestra.js
-
-The content of the index and orchestra files could look like this:
-
-**aggregator / index.js**
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-exports.handler = function(event, context, callback) {
-
-    // define the request configuration
-    const config = {
-        expects: [ 'increment', 'double' ],
-        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX'
-        topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-    };
 
     // make the request
-    return Scather.request(5, config, callback);
-}
-
-```
-
-**double / index.js**
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-// define increment handler
-exports.handler = Scather.response(function(data, meta, callback) {
-    callback(null, data * 2);
+    aggregator(5, function(err, data) {
+        // ... run some code ...
+    });
 });
 ```
 
-**increment / index.js**
+## Without AWS Lambda
+
+It is possible to run both aggregators and responders either on or off AWS Lambdas. This section highlights how to do this off of an AWS Lambda.
+
+To accomplish this:
+
+- You must be running your own NodeJS server that accepts connect middleware.
+- You will need to tell the server to use the Scather middleware.
+- You will need to make an SNS Topic subscription request using Scather's subscription interface.
+
+Once done, any aggregators or responders that you define will automatically be called as AWS SNS Notifications come in on your server.
+
+##### Express Server Example
+
+[Express](http://expressjs.com/) is one of many NodeJS servers that accept connect middleware.
 
 ```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
+const AWS               = require('aws-sdk');
+const express           = require('express');
+const Scather           = require('aws-scatter-gather');
 
-// define increment handler
-exports.handler = Scather.response(function(data, meta, callback) {
-    callback(null, data + 1);
+const app = express();
+
+// your server will now process AWS SNS Notifications, Subscription Confirmations, etc.
+app.use(Scather.server.middleware());
+
+app.listen(3000, function () {
+    console.log('Server listening on port 3000!');
 });
+
+// subscribe your server to a specific topic arn
+Scather.server.subscribe('arn:aws:sns:us-west-2:064824991063:TopicX', 'http://myserver.com');
 ```
 
-**orchestra.js**
+Note that although it is possible to use the AWS SDK to subscribe to AWS SNS directly, the middleware will not confirm any subscriptions that were not made through `Scather.server.subscribe()`.
 
-```js
-const AWS        = require('aws-sdk');
-const Scather    = require('aws-scatter-gather');
-const aggregator = require('./aggregator/index');
-const double     = require('./double/index');
-const increment  = require('./increment/index');
 
-// SNS events for the topic call the handler
-Scather.orchestrate('arn:aws:sns:us-west-2:0641063:TopicY', 'double', double.handler);
-Scather.orchestrate('arn:aws:sns:us-west-2:0641063:TopicY', 'increment', increment.handler);
+## Developing Locally
 
-// 1. Execute the aggregator handle
-// 2. The aggregator will publish the event
-// 3. The lambdas will process and publish their responses
-// 4. The aggregator will receive and compile responses
-aggregator.handler(null, null, function(err, data) {
-    if (err) {
-        callback(err, null);
-    } else {
-        // data: { increment: 6, double: 10 }
-        callback(null, data);
-    }
-});
-```
+If you plan to do initial development on your local machine before moving them to AWS Lambdas then here are some tips on how to do that.
 
-Run the orchestra file to test your code:
+1. Structure your file system like this:
 
-```sh
-$ node orchestra
-```
+    - **my-project**
+        - **aggregator**
+            - index.js *(similar to [aggregator example](#aws-lambda-aggregator-better))*
+            - package.json
+        - **double**
+            - index.js *(similar to [double example](#aws-lambda-double-response))*
+            - package.json
+        - **increment**
+            - index.js *(similar to [increment example](#aws-lambda-increment-response))*
+            - package.json
+        - orchestra.js
+        - package.json
+
+    Be sure to include the `aws-sdk` and `aws-scatter-gather` packages as dependencies in each package.json file.
+
+2. If your computer is behind a NAT or a firewall, use [ngrok](https://ngrok.com/) or something similar to create a tunnel from the public internet to your local machine.
+
+3. The orchestra.js should be something like this:
+
+    ```js
+    const AWS               = require('aws-sdk');
+    const Scather           = require('aws-scatter-gather');
+
+    // include lambda index files
+    const aggregator        = require('./aggregator/index');
+    const double            = require('./double/index');
+    const increment         = require('./increment/index');
+
+    // create a mock subscription for the responders
+    const responseArn = 'arn:aws:sns:us-west-2:064824991063:TopicX';
+    Scather.mock.lambdaSubscribe(requestArn, 'double', double.handler);
+    Scather.mock.lambdaSubscribe(requestArn, 'increment', increment.handler);
+
+    // execute the aggregator function
+    aggregator.handler({}, {}, function(err, data) {
+        console.log(err, data);
+    });
+    ```
+
+4. Run your orchestra.js code in debug mode and use an inspector to troubleshoot errors.
 
 ## API
 
-### EventInterface
+### aggregator ( configuration )
+
+Create an aggregator function that can be called to start a scatter gather request.
+
+Creating an aggregator also creates a subscription to the `topicArn` or `responseArn` provided in the config parameter. To end that subscription see [aggregator.unsubscribe](#aggregator-unsubscribe).
+
+Parameters
+
+- *configuration* - The configuration to apply to the aggregator. Any time the aggregator is called it will use this same configuration. Properties for the configuration include:
+
+    - *expects* - An array of strings for function names that the aggregator expects to hear back from. Once all expected responses are received and the `minWait` time has been reached then the aggregator will complete. Defaults to `[]`.
+    - *functionName* - The name of the aggregator function. This value is not necessary, but it does help when looking at logs and some response functions might care about the name of the function that is making the request. Defaults to '-'.
+    - *maxWait* - The maximum number of milliseconds to wait before stopping response aggregation. Defaults to `2500`.
+    - *minWait* - The minimum number of milliseconds to wait before stopping response aggregation. Defaults to `0`.
+    - *responseArn* - The SNS Topic Arn that the aggregator will listen on for responses. Defaults to using the `topicArn` if not provided.
+    - *topicArn* - The SNS Topic Arn to publish the request on.
+
+Returns an aggregator function with unsubscribe property. The aggregator function can either use a callback paradigm or a promise paradigm.
+
+```js
+const aggregator = Scather.Aggregator({ topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicX' });
+
+aggregator(5, function(err, data) {
+    console.log(results);
+});
+
+aggregator(10)
+    .then(function(data) {
+        console.log(data);
+    });
+
+// check current subscription status
+console.log(aggregator.subscribed);     // true
+
+// no new aggregator calls after this and unsubscribe will wait
+// for running aggregators to finish
+aggregator.unsubscribe();
+```
+
+### Event Interface
 
 The aws-scatter-gather package is largely event driven. You can ignore the events if you want, or tap into them if you want to do something beyond what the aws-scatter-gather package provides.
 
@@ -339,20 +270,21 @@ The aws-scatter-gather package is largely event driven. You can ignore the event
 - **NOTIFICATION** - This event is fired whenever an AWS SNS Topic event is produced. The events may come from the internal system or from AWS. You can determine if the event come from the aws-scatter-gather package by looking determining if the event property `Record[x].EventSource` is equal to `awssg:local`.
 - **PUBLISH** - This event occurs if an event is published by the aws-scatter-gather package.
 - **SNS** - This event occurs to report the success of an AWS-SDK call made by the aws-scatter-gather package.
+- **SUBSCRIBE** - This event occurs when a subscription is created.
+- **UNSUBSCRIBE** - This event occurs when a subscription is ended.
 
 **Example: Capturing all Notification Events**
 
-Notice in the example that the notifications are logged to the console by listening on `EventInterface.NOTIFICATION`.
+Notice in the example that the notifications are logged to the console by listening on `events.NOTIFICATION`.
 
 ```js
 const Scather = require('aws-scatter-gather');
-const EventInterface = Scather.EventInterface;
-EventInterface.on(EventInterface.NOTIFICATION, function(event) {
+Scather.events.on(Scather.events.NOTIFICATION, function(event) {
     console.log(event);
 });
 ```
 
-#### EventInterface.off ([ eventName, ] callback )
+#### events.off ([ eventName, ] callback )
 
 Once an event has been added you can remove it via this method. The parameters you used to add the listener must be the same parameters to remove the listener.
 
@@ -363,7 +295,7 @@ Parameters:
 
 Returns: undefined
 
-#### EventInterface.on ([ eventName, ] callback )
+#### events.on ([ eventName, ] callback )
 
 Add an event listener function that will be called for each event specified.
 
@@ -374,7 +306,7 @@ Parameters
 
 Returns: undefined
 
-#### EventInterface.once ([ eventName, ] callback )
+#### events.once ([ eventName, ] callback )
 
 Add an event listener function that will be called just once for the event type specified. After the callback is called once then it will not be called again unless you put it back on the event interface.
 
@@ -385,16 +317,48 @@ Parameters
 
 Returns: undefined
 
-### Logger
+## Local Subscriptions
 
-#### Logger ( namespace [, silent ] )
+The aws-scatter-gather package uses a two-tier subscription system for transmitting messages. The first tier is local and the second tier is an interface with the AWS SNS system. The entire system can work without using the second tier in what is essentially an offline mode. Here is how it works:
 
-Create an aws-scatter-gather logger instance. You can then log to `.info`, `.warn`, or `.error`. Logged events are pushed to the EventInterface and handled there.
+1. An event occurs on the machine.
+2. The event propagates to listeners on the local machine.
+3. If the AWS has credentials, the Topic Arn is valid, and the server network is [enabled](server-enabled) then the local machine publishes the event the the AWS SNS.
+4. Any events from the AWS SNS are propagated to listeners on the local machine.
+
+#### local.subscribe ( topicArn, functionName, handler )
+
+Create a local subscription for the specified topic arn to the provided handler.
+
+Parameters
+
+- *topicArn* - The topic to start listening on.
+- *functionName* - The name to assign to the lambda function.
+- *handler* - The function to remove that is like an AWS lambda handler.
+
+Returns: undefined
+
+#### local.unsubscribe ( topicArn, handler )
+
+Remove the local subscription for the specified topic arn to the provided handler.
+
+Parameters
+
+- *topicArn* - The topic to stop listening on.
+- *handler* - The function to remove that is like an AWS lambda handler.
+
+Returns: undefined
+
+### logger
+
+#### logger ( namespace [, silent ] )
+
+Create an aws-scatter-gather logger instance. You can then log to `.info`, `.warn`, or `.error`. Logged events are pushed to the local event interface and handled there.
 
 Parameters
 
 - *namespace* - The name to attach to all log events that describes the domain of events being logged.
-- *silent* - Optional. Whether the logging should be silent, being pushed to the EventInterface but not logged to the console. Set to true to also log to the console. If not specified then the default silent setting for all logs will be used.
+- *silent* - Optional. Whether the logging should be silent, being pushed to the local event interface but not logged to the console. Set to true to also log to the console. If not specified then the default silent setting for all logs will be used.
 
 Returns: Log
 
@@ -405,7 +369,7 @@ const myLog = Scather.Logger('my-log');
 myLog.info('My logger created');
 ```
 
-#### Logger.events
+#### logger.events
 
 A boolean property value that if set to true will log all events for the system to the console. Defaults to `false`.
 
@@ -415,9 +379,9 @@ const Scather = require('aws-scatter-gather');
 Scather.Logger.events = true;
 ```
 
-#### Logger.silent
+#### logger.silent
 
-A boolean property value that sets the default logging to console mode. If set to true then the logs for the aws-scatter-gather package will be output to the console.
+A boolean property value that sets the default logging to console mode. If set to true then the logs for the aws-scatter-gather package will be output to the console. Defaults to `true`.
 
 ```js
 // log scather events to the console
@@ -425,97 +389,39 @@ const Scather = require('aws-scatter-gather');
 Scather.Logger.silent = false;
 ```
 
-### Orchestrate
+### mock
 
-For a full explanation of why you might use this, see [Event Orchestration](#event-orchestration). In short, it is used to mimic AWS lambda functions being called by an AWS SNS Trigger, but it happens locally instead of on the AWS infrastructure.
+These functions are used for mocking and testing.
 
-#### Orchestrate.off ( topicArn, handler )
+#### mock.requestEvent ( topicArn, message, attributes )
 
-Remove a lambda like function handler from listening to the specified topic.
+Create an event that resembles the event that an SNS Topic would send to a lambda function when that event was produced by an aggregator.
 
 Parameters
 
-- *topicArn* - The topic stop listening on.
-- *handler* - The function to remove that is like an AWS lambda handler.
+- *topicArn* - The SNS topic arn.
+- *message* - The message value send from the aggregator.
+- *attributes* - An object defining the attributes that accompany the message.
 
 Returns: undefined
 
-#### Orchestrate.on ( topicArn, functionName, handler )
+### response ( [configuration, ] callback )
 
-Any time an event notification occurs on the specified topic, call the handler function with that event as if the handler were a lambda function.
-
-Parameters
-
-- *topicArn* - The topic to listen for. Note that for local testing this does not need to be a valid AWS Topic ARN.
-- *functionName* - The name that you want this function to go by. All AWS lambda's have function names and this value is meant to provide that for your pseudo lambda function.
-- *handler* - A function that responds as if it were an AWS lambda handler.
-
-Returns: undefined
-
-### request ( data, config [, callback] )
-
-Make an aggregator request by posting the request event to an SNS Topic. Handlers set up to respond to events on that topic will respond by publish an event back to the aggregator.
+Create a function that is a Scather response generator. A response generator function will only be called when it receives an aggregator request event.
 
 Parameters
 
-- *data* - Any data and any data type that you want Scather Value Object Generators to accept and respond to.
+- *configuration* - An object that specifies how to run the response. Options include:
 
-- *config* - The aggregator configuration:
-    - *expects* - Optional. An array of strings where each string represents a function name (or lambda name) to expect a response from. If all expected functions respond and the *minWait* time has been reached then the aggregator will stop aggregating responses. Defaults to `[]`.
-
-    - *functionName* - Optional. The function name that represents the aggregator. Defaults to `''`.
-
-    - *maxWait* - Optional. The maximum number of milliseconds to allow the aggregator to collect responses. Defaults to `2500`.
-
-    - *minWait* - Optional. The minimum number of milliseconds to allow the aggregator to collect responses. Even if all expected responses have been received, the aggregator will continue to collect responses until the minimum wait time has been reached. Defaults to `0`.
-
-    - *responseArn* - The Topic ARN to have the Scather Value Object Generators publish their responses to. If not set then this will be the same value as the *topicArn*.
-
-    - *topicArn* - The Topic ARN to publish the aggregator request event to.
-
-- *callback* - Optional. If specified, the callback will be called with two parameters, `error` and `data`, once the aggregator has finished. The `error` will be null if no error occurred. The `data` will be an object map of the function names of Scather Value Object Generators to their response values.
-
-Returns: Promise or undefined. If a callback is not provided to the request function then a Promise will be returned.
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-AWS.config.update({region:'us-west-2'});
-
-const config = {
-    expects: [ 'increment', 'double' ], /* OPTIONAL */
-    functionName: 'aggregator',         /* OPTIONAL */
-    maxWait: 2500,                      /* OPTIONAL */
-    minWait: 0,                         /* OPTIONAL */
-    responseArn: '',                    /* OPTIONAL */
-    topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-};
-
-// make the request
-Scather.request(5, config, function(err, data) {
-    if (err) {
-        callback(err, null);
-    } else {
-        // data: { increment: 6, double: 10 }
-        callback(null, data);
-    }
-});
-```
-
-### response ( callback )
-
-Create a function that is a Scather Value Object Generator. A Value Object Generator function will only be called when there is an aggregator event.
-
-Parameters
+    - *development* - If set to true and the response function encounters an error then it will publish the error to the SNS response arn. The aggregator will then capture the response, recognize that it received an answer (but not add it to the final result set), and it will log it.
 
 - *callback* - A function that will accept aggregator event data, process it, and respond to it. The callback has the signature `function ( data, attributes [, done ])` where:
 
-    - *data* - Is the value that the aggregator sent as data.
+    - *value* - The value sent by the aggregator.
 
-    - *attributes* - Includes data about the request.
+    - *context* - The current context of the event.
 
-    - *done* - Optional. A function that must be called when this finished. It takes two parameters, `error` and `data`. If there are no errors then set the `error` value to `null`. The value sent as `data` will be the value that the aggregator receives.
+    - *done* - Optional. A function that is called when the response is finished. It takes two parameters, `error` and `data`. If there are no errors then set the `error` value to `null`. The value sent as `data` will be the value that the aggregator receives. If this parameter is omitted then the function will return a promise.
 
 Returns: Function. When the function is called, if it is called with a third parameter (a callback function) then the callback will be called when completed. If a third parameter is omitted then the function will return a promise.
 
@@ -529,20 +435,46 @@ exports.handler = Scather.response(function(data, attributes, done) {
 });
 ```
 
-### Server ( config )
+### server
 
-If you are using a machine that does not already have a subscription to an AWS SNS Topic then you can create one using the built in subscription server. To subscribe to an AWS SNS Topic, first create the server then create the subscription.
+Helper methods for those who are running their own server.
+
+#### server.enabled
+
+A property that if `true` will allow events to be published to the AWS SNS and notifications to be received by the local machine. Defaults to `true`.
+
+#### server.middleware ( configuration )
+
+Returns a middleware function that any NodeJS server that supports connect middleware can use to link the server with AWS SNS.
 
 Parameters
 
-- *config* - An object representing the server configuration. It has the following properties:
+- *configuration* - An object representing the middleware configuration. It has the following properties:
 
-    - *endpoint* - Optional. A public URL endpoint where AWS can publish SNS Topic events to. If you do not have a public endpoint then you can use the *tunnel* option.
+    - *passThrough* - Optional. If set to true then once the middleware has completed it will continue to run other server middleware and routes. Defaults to `false`.
 
-    - *port* - Optional. The port number to run the server on. By default it will find any open port.
+Returns: A middleware function.
 
-    - *tunnel* - Optional. Set to true to set up an [ngrok](http://ngrok.io) tunnel, or specify the details of the tunnel by passing in an [ngrok configuration](https://www.npmjs.com/package/ngrok#options)
+#### server.subscribe ( topicArn, endpoint )
 
-Returns: Object that represents a server instance.
+Create an AWS SNS subscription to the specified topic for the server.
 
-#### server.subscribe ( topicArn )
+Parameters
+
+- *topicArn* - The AWS SNS Topic arn to subscribe to.
+
+- *endpoint* - The public endpoint URL for this server.
+
+Returns: undefined
+
+#### server.unsubscribe ( topicArn, endpoint )
+
+Remove an AWS SNS subscription to the specified topic for the server.
+
+Parameters
+
+- *topicArn* - The AWS SNS Topic arn to subscribe to.
+
+- *endpoint* - The public endpoint URL for this server.
+
+Returns: undefined
