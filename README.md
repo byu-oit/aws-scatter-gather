@@ -56,7 +56,7 @@ exports.handler = function(event, context, callback) {
             callback(null, data);   // data: { increment: 6, double: 10 }
         }
     });
-});
+};
 ```
 
 ##### AWS Lambda Increment Response
