@@ -186,7 +186,7 @@ exports.response = function(configuration, handler) {
             ScatherRequestId: context.scather.ScatherRequestId
         });
         EventInterface.fire(EventInterface.PUBLISH, event);
-        Res.info('Sent ' + direction + ' for ' + context.scather.ScatherRequestId +
+        Res.info('Sent response for ' + context.scather.ScatherRequestId +
             ' to topic ' + context.scather.ScatherResponseArn + ' with data: ' + message);
     }
 
