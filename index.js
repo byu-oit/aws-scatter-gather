@@ -14,8 +14,6 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  **/
-// TODO: only set up one tunnel for multiple subscriptions
-// TODO: upload a lambda for testing
 
 'use strict';
 const EventInterface    = require('./bin/event-interface');
