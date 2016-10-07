@@ -207,7 +207,7 @@ If you plan to do initial development on your local machine before moving them t
     const increment         = require('./increment/index');
 
     // create a mock subscription for the responders
-    const responseArn = 'arn:aws:sns:us-west-2:064824991063:TopicX';
+    const requestArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
     Scather.local.subscribe(requestArn, 'double', double.handler);
     Scather.local.subscribe(requestArn, 'increment', increment.handler);
 
