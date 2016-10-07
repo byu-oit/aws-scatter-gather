@@ -15,85 +15,204 @@
  *    limitations under the License.
  **/
 'use strict';
-const bodyParser    = require('body-parser');
-const express       = require('express');
+const AWS               = require('aws-sdk');
+const defer             = require('./defer');
+const EventInterface    = require('./event-interface');
+const EventRecord       = require('./event-record');
+const Log               = require('./log')('SERVER');
+const Promise           = require('bluebird');
+const schemas           = require('./schemas');
+
+const confirmedSubscriptions = {};
+const unconfirmedSubscriptions = {};
+
+module.exports = {
+    enabled: true,
+    middleware: middleware,
+    subscribe: subscribe,
+    unsubscribe: unsubscribe
+};
 
 /**
- * Start a new server.
- * @param {object} sns The AWS Sns instance.
- * @param {object} config The server configuration.
- * @param {function} callback A function to call with each request object.
- * @returns {Promise<Server>}
+ * Confirm a subscription.
+ * @param body
+ * @returns {*}
  */
-module.exports = function(sns, config, callback) {
-    const protocol = /^(https?):/.exec(config.endpoint)[1];
+function confirmSubscription(body) {
+
+    // check to see if we're waiting on this topic confirmation
+    const topicArn = body.TopicArn;
+    if (!unconfirmedSubscriptions.hasOwnProperty(body.TopicArn)) return;
+
+    // build the sns object
+    const sns = new AWS.SNS();
+
+    // get deferred object
+    const deferred = unconfirmedSubscriptions[topicArn];
+
+    // send aws the confirmation
+    const params = {
+        Token: body.Token,
+        TopicArn: topicArn
+    };
+    sns.confirmSubscription(params, function (err, data) {
+        EventInterface.fire(EventInterface.SNS, {
+            action: 'confirmSubscription',
+            error: err,
+            params: params,
+            result: data
+        });
+
+        // delete from unconfirmed subscriptions despite outcome
+        delete unconfirmedSubscriptions[topicArn];
+
+        if (err) {
+            deferred.reject(err);
+        } else {
+            deferred.resolve(data.SubscriptionArn);
+            Log.info('Subscribed to AWS SNS Topic: ' + deferred.topicArn);
+
+            // store confirmed subscription arn
+            confirmedSubscriptions[topicArn] = data.SubscriptionArn;
+        }
+    });
+
+}
+
+/**
+ * Get a middleware function that will pick up and handle aws post requests
+ * @param {Object} configuration
+ * @returns {Function}
+ */
+function middleware(configuration) {
+    const config = schemas.middleware.normalize(configuration || {});
+
+    return function(req, res, next) {
+
+        // if this is not a message from aws then continue to next middleware
+        if (req.method !== 'POST' || !req.headers['x-amz-sns-message-type']) return next();
+
+        // process aws message
+        parseBody(req, function(err, body) {
+            if (err) return next(err);
+
+            req.body = body;
+            switch (req.headers['x-amz-sns-message-type']) {
+                case 'Notification':
+                    if (module.exports.enabled) EventInterface.fire(EventInterface.NOTIFICATION, body);
+                    break;
+                case 'SubscriptionConfirmation':
+                    confirmSubscription(body);
+                    break;
+                case 'UnsubscribeConfirmation':
+                    break;
+            }
+
+            if (!config.passThrough) res.end();
+        });
+    };
+}
+
+/**
+ * Parse the response body.
+ * @param {Object} req
+ * @param {function} callback
+ */
+function parseBody(req, callback) {
+    var body = '';
+
+    req.on('error', function(err) {
+        if (callback) callback(err, null);
+        callback = null;
+    });
+
+    req.on('data', function(chunk) {
+        body += chunk.toString();
+    });
+
+    req.on('end', function() {
+        try {
+            var obj = JSON.parse(body);
+            if (callback) callback(null, obj);
+        } catch (err) {
+            var e = Error('Unexpected body format received. Expected application/json, received: ' + body);
+            if (callback) callback(e, null);
+        }
+        callback = null;
+    });
+}
+
+/**
+ * Subscribe to an SNS Topic.
+ * @param {string} topicArn
+ * @param {string} endpoint
+ * @returns {Promise}
+ */
+function subscribe(topicArn, endpoint) {
+
+    // validate the topic arn
+    if (!EventRecord.isValidAwsTopicArn(topicArn)) {
+        Log.warn('Cannot subscribe to an invalid AWS Topic Arn: ' + topicArn);
+        return Promise.resolve();
+    }
+
+    // build the sns object
+    const sns = new AWS.SNS();
+
+    // if already subscribed then return now
+    const subscriptionArn = confirmedSubscriptions[topicArn];
+    if (subscriptionArn) return Promise.resolve(subscriptionArn);
+
+    // if subscription request underway then return previous promise
+    if (unconfirmedSubscriptions[topicArn]) return unconfirmedSubscriptions[topicArn].promise;
+
+    const deferred = defer();
+    deferred.topicArn = topicArn;
+    const params = {
+        Protocol: /^(https?):/.exec(endpoint)[1],
+        TopicArn: topicArn,
+        Endpoint: endpoint
+    };
+    sns.subscribe(params, function(err, data) {
+        EventInterface.fire(EventInterface.SNS, {
+            action: 'subscribe',
+            error: err,
+            params: params,
+            result: data
+        });
+        if (err) return deferred.reject(err);
+    });
+    unconfirmedSubscriptions[topicArn] = deferred;
+
+    return deferred.promise;
+}
+
+/**
+ * Unsubscribe the server from aws.
+ * @param {string} topicArn
+ * @returns {Promise}
+ */
+function unsubscribe(topicArn) {
+    const subscriptionArn = confirmedSubscriptions[topicArn];
+    delete unconfirmedSubscriptions[topicArn];
+    if (!subscriptionArn) return Promise.resolve();
+
+    // build the sns object
+    const sns = new AWS.SNS();
 
     return new Promise(function(resolve, reject) {
-        
-        // get an express server instance
-        const app = express();
-
-        // If the message is from AWS then set the content type to application/json
-        // before the body parser middleware
-        app.use(function(req, res, next) {
-            switch (req.headers['x-amz-sns-message-type']) {
-                case 'Notification':
-                case 'SubscriptionConfirmation':
-                case 'UnsubscribeConfirmation':
-                    req.headers['content-type'] = 'application/json';
-                    break;
-            }
-            next();
-        });
-
-        // parse JSON body
-        app.use(bodyParser.json());
-
-        // watch for post requests
-        app.post(/.*/, function(req, res) {
-            switch (req.headers['x-amz-sns-message-type']) {
-                
-                // forward notification to the callback
-                case 'Notification':
-                    config.logger.log('Received Notification: ' + JSON.stringify(req.body, null, 2));
-                    callback(req.body);
-                    break;
-                
-                // confirm subscription to the topic
-                case 'SubscriptionConfirmation':
-                    config.logger.log('Received SubscriptionConfirmation: ' + JSON.stringify(req.body, null, 2));
-                    const params = {
-                        Token: req.body.Token,
-                        TopicArn: req.body.TopicArn
-                    };
-                    sns.confirmSubscription(params, function(err) {
-                        if (err) return reject(err);
-                        resolve(app);
-                    });
-                    break;
-                
-                // confirm unsubscription from the topic
-                case 'UnsubscribeConfirmation':
-                    break;
-            }
-
-            // send an empty response
-            res.end();
-        });
-
-        // set the app to listen on the port
-        app.server = app.listen(config.port, function(err) {
-            if (err) return reject(err);
-
-            // initiate subscription to the topic
-            const params = {
-                Protocol: protocol,
-                TopicArn: config.topicArn,
-                Endpoint: config.endpoint
-            };
-            sns.subscribe(params, function(err) {
-                if (err) return reject(err);
+        const params = {
+            SubscriptionArn: subscriptionArn
+        };
+        sns.unsubscribe(params, function (err) {
+            EventInterface.fire(EventInterface.SNS, {
+                action: 'unsubscribe',
+                error: err,
+                params: params,
+                result: data
             });
+            if (err) return reject(err);
+            resolve();
         });
     });
-};
+}

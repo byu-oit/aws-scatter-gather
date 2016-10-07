@@ -15,21 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
 
-module.exports = Logger;
-
-function Logger(enabled) {
-    const factory = Object.create(Logger.prototype);
-
-    factory.enabled = arguments.length > 0 ? enabled : true;
-
-    return factory;
-}
-
-Logger.prototype.error = function() {
-    if (this.enabled) console.error.apply(console, arguments);
-};
-
-Logger.prototype.log = function() {
-    if (this.enabled) console.log.apply(console, arguments);
-};
+// define the SNS post handler
+exports.handler = Scather.response(function(message, context, callback) {
+    callback(null, data * 2);
+});

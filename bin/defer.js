@@ -17,11 +17,21 @@
 'use strict';
 const Promise       = require('bluebird');
 
-module.exports = function() {
+module.exports = defer;
+
+function defer() {
     const deferred = {};
     deferred.promise = new Promise(function(resolve, reject) {
         deferred.resolve = resolve;
         deferred.reject = reject;
     });
     return deferred;
+}
+
+defer.paradigm = function(promise, callback) {
+    if (typeof callback === 'function') {
+        promise.then(function(v) { callback(null, v) }, function(e) { callback(e, null) });
+    } else {
+        return promise;
+    }
 };

@@ -15,27 +15,21 @@
  *    limitations under the License.
  **/
 'use strict';
-const Hashids       = require("hashids");
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
 
-const interfaces = require('os').networkInterfaces();
-const decodedValues = [];
+exports.handler = function(event, context, callback) {
 
-Object.keys(interfaces).forEach(key => {
-    const networkInterface = interfaces[key];
-    if (networkInterface.length > 0) {
-        const values = networkInterface[0].mac
-            .split(':')
-            .map(v => parseInt(v, 16));
-        decodedValues.push.apply(decodedValues, values);
-    }
-});
+    // define the request configuration
+    const aggregator = Scather.aggregator({
+        expects: [ 'increment', 'double' ],
+        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX',
+        topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
+    });
 
-const hashids = new Hashids('machine-id');
-const machineId = hashids.encode(decodedValues);
-
-// export the unique id
-Object.defineProperty(module, 'exports', {
-    configurable: false,
-    writable: false,
-    value: machineId
-});
+    // make the request
+    aggregator(5, function(err, data) {
+        // ... run some code ...
+        callback(err, data);
+    });
+};

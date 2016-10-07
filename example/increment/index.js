@@ -15,10 +15,9 @@
  *    limitations under the License.
  **/
 'use strict';
-const Scather       = require('../bin/scatter-gather');
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
 
-const scather = Scather({});
-
-exports.increment = scather.response(function(event, context, callback) {
-    callback(null, event + 1);
+exports.handler = Scather.response(function(message, context, callback) {
+    callback(null, data + 1);
 });

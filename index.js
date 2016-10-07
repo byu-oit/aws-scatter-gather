@@ -14,5 +14,28 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  **/
+
 'use strict';
-module.exports = require('./bin/scatter-gather');
+const EventInterface    = require('./bin/event-interface');
+const Log               = require('./bin/log');
+const Mock              = require('./bin/mock');
+const Scather           = require('./bin/scatter-gather');
+const Server            = require('./bin/server');
+const Subscription      = require('./bin/subscription');
+
+module.exports = {
+    aggregator: Scather.aggregator,
+    events: {
+        off: EventInterface.off,
+        on: EventInterface.on,
+        once: EventInterface.once
+    },
+    local: {
+        subscribe: Subscription.subscribe,
+        unsubscribe: Subscription.unsubscribe
+    },
+    logger: Log,
+    mock: Mock,
+    response: Scather.response,
+    server: Server
+};
