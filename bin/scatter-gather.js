@@ -35,14 +35,13 @@ exports.aggregator = function(configuration) {
     const config = schemas.request.normalize(configuration || {});
     const responseArn = config.responseArn || config.topicArn;
     const gatherers = [];
-    var shutdown = false;
 
     // subscribe the aggregator to the topic arn
     Subscriptions.subscribe(responseArn, config.functionName, runGatherers);
 
     // define the aggregator function
     function aggregator(data, callback) {
-        if (shutdown) {
+        if (!aggregator.subscribed) {
             return Promise.reject(Error('Request aggregator has been unsubscribed. It will no longer gather requests.'));
         }
 
@@ -136,11 +135,10 @@ exports.aggregator = function(configuration) {
     // unsubscribe the aggregator
     function unsubscribe() {
         const promises = [];
-        shutdown = true;
+        aggregator.subscribed = false;
         gatherers.forEach(function(item) { promises.push(item.promise.catch(fnUndefined)) });
         return Promise.all(promises)
             .then(function() {
-                aggregator.subscribed = false;
                 return Subscriptions.unsubscribe(responseArn, runGatherers);
             });
     }
