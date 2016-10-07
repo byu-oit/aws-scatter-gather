@@ -23,7 +23,6 @@ exports.NOTIFICATION = 'notification';
 exports.PUBLISH = 'publish';
 exports.SNS = 'sns';
 exports.SUBSCRIBE = 'subscribe';
-exports.SUBSCRIPTION_CONFIRMED = 'subscription-confirmed';
 exports.UNSUBSCRIBE = 'unsubscribe';
 
 /**
