@@ -29,10 +29,6 @@ describe('Scather.response', function() {
     it('is a function', function() {
         expect(response).to.be.a('function');
     });
-
-    it('throw an error if the first parameter is not a function', function() {
-        expect(function() { response(); }).to.throw(Error);
-    });
     
     it('returns a function', function() {
         expect(response(noop)).to.be.a('function');
