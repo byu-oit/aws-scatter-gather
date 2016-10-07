@@ -172,7 +172,7 @@ exports.response = function(configuration, handler) {
 
     // define a function that will send the response
     function sendResponse(direction, message, context) {
-        const event = EventRecord.createPublishEvent(innerContext.scather.ScatherResponseArn, message, {
+        const event = EventRecord.createPublishEvent(context.scather.ScatherResponseArn, message, {
             ScatherDirection: direction,
             ScatherFunctionName: context.functionName,
             ScatherResponseArn: context.scather.ScatherResponseArn,
