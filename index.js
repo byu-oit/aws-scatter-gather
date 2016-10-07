@@ -21,15 +21,20 @@ const Log               = require('./bin/log');
 const Mock              = require('./bin/mock');
 const Scather           = require('./bin/scatter-gather');
 const Server            = require('./bin/server');
+const Subscription      = require('./bin/subscription');
 
 module.exports = {
     aggregator: Scather.aggregator,
-    EventInterface: {
+    events: {
         off: EventInterface.off,
         on: EventInterface.on,
         once: EventInterface.once
     },
-    Logger: Log,
+    local: {
+        subscribe: Subscription.subscribe,
+        unsubscribe: Subscription.unsubscribe
+    },
+    logger: Log,
     mock: Mock,
     response: Scather.response,
     server: Server
