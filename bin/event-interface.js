@@ -18,8 +18,6 @@
 const listeners = {};
 var any = [];
 
-// TODO: make event type optional for listening so that one callback can listen to all events
-
 exports.LOG = 'log';
 exports.NOTIFICATION = 'notification';
 exports.PUBLISH = 'publish';
