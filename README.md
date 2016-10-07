@@ -223,7 +223,7 @@ If you plan to do initial development on your local machine before moving them t
 
 ## API
 
-### aggregator ( configuration )
+### aggregator ( configuration ) : Function
 
 Create an aggregator function that can be called to start a scatter gather request.
 
@@ -240,7 +240,7 @@ Parameters
     - *responseArn* - The SNS Topic Arn that the aggregator will listen on for responses. Defaults to using the `topicArn` if not provided.
     - *topicArn* - The SNS Topic Arn to publish the request on.
 
-Returns an aggregator function with unsubscribe property. The aggregator function can either use a callback paradigm or a promise paradigm.
+Returns an aggregator function with unsubscribe property. **The aggregator function can either use a callback paradigm or a promise paradigm.**
 
 ```js
 const aggregator = Scather.Aggregator({ topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicX' });
@@ -286,7 +286,7 @@ Scather.events.on(Scather.events.NOTIFICATION, function(event) {
 });
 ```
 
-#### events.off ([ eventName, ] callback )
+#### events.off ([ eventName, ] callback ) : undefined
 
 Once an event has been added you can remove it via this method. The parameters you used to add the listener must be the same parameters to remove the listener.
 
@@ -297,7 +297,7 @@ Parameters:
 
 Returns: undefined
 
-#### events.on ([ eventName, ] callback )
+#### events.on ([ eventName, ] callback ) : undefined
 
 Add an event listener function that will be called for each event specified.
 
@@ -308,7 +308,7 @@ Parameters
 
 Returns: undefined
 
-#### events.once ([ eventName, ] callback )
+#### events.once ([ eventName, ] callback ) : undefined
 
 Add an event listener function that will be called just once for the event type specified. After the callback is called once then it will not be called again unless you put it back on the event interface.
 
@@ -328,7 +328,7 @@ The aws-scatter-gather package uses a two-tier subscription system for transmitt
 3. If the AWS has credentials, the Topic Arn is valid, and the server network is [enabled](server-enabled) then the local machine publishes the event the the AWS SNS.
 4. Any events from the AWS SNS are propagated to listeners on the local machine.
 
-#### local.subscribe ( topicArn, functionName, handler )
+#### local.subscribe ( topicArn, functionName, handler ) : undefined
 
 Create a local subscription for the specified topic arn to the provided handler.
 
@@ -340,7 +340,7 @@ Parameters
 
 Returns: undefined
 
-#### local.unsubscribe ( topicArn, handler )
+#### local.unsubscribe ( topicArn, handler ) : undefined
 
 Remove the local subscription for the specified topic arn to the provided handler.
 
@@ -353,7 +353,7 @@ Returns: undefined
 
 ### logger
 
-#### logger ( namespace [, silent ] )
+#### logger ( namespace [, silent ] ) : Object
 
 Create an aws-scatter-gather logger instance. You can then log to `.info`, `.warn`, or `.error`. Logged events are pushed to the local event interface and handled there.
 
@@ -362,7 +362,7 @@ Parameters
 - *namespace* - The name to attach to all log events that describes the domain of events being logged.
 - *silent* - Optional. Whether the logging should be silent, being pushed to the local event interface but not logged to the console. Set to true to also log to the console. If not specified then the default silent setting for all logs will be used.
 
-Returns: Log
+Returns: An object with `.info`, `.warn`, and `.error` properties that are functions that can be called to log information.
 
 ```js
 // create a logger instance
@@ -395,9 +395,9 @@ Scather.Logger.silent = false;
 
 These functions are used for mocking and testing.
 
-#### mock.requestEvent ( topicArn, message, attributes )
+#### mock.requestEvent ( topicArn, message, attributes ) : Object
 
-Create an event that resembles the event that an SNS Topic would send to a lambda function when that event was produced by an aggregator.
+Create an event that resembles the event that an SNS Topic would send to a lambda function when that event was produced by an aggregator. This is useful for testing Scather.response functions.
 
 Parameters
 
@@ -405,9 +405,9 @@ Parameters
 - *message* - The message value send from the aggregator.
 - *attributes* - An object defining the attributes that accompany the message.
 
-Returns: undefined
+Returns: An object that looks like an AWS SNS Event.
 
-### response ( [configuration, ] callback )
+### response ( [configuration, ] callback ) : Function
 
 Create a function that is a Scather response generator. A response generator function will only be called when it receives an aggregator request event.
 
@@ -425,7 +425,7 @@ Parameters
 
     - *done* - Optional. A function that is called when the response is finished. It takes two parameters, `error` and `data`. If there are no errors then set the `error` value to `null`. The value sent as `data` will be the value that the aggregator receives. If this parameter is omitted then the function will return a promise.
 
-Returns: Function. When the function is called, if it is called with a third parameter (a callback function) then the callback will be called when completed. If a third parameter is omitted then the function will return a promise.
+Returns: Function. When the function is called, if it is called with a third parameter (a callback function) then the callback will be called when completed. **If the third parameter is omitted then the function will return a promise.**
 
 ```js
 const AWS = require('aws-sdk');
@@ -445,7 +445,7 @@ Helper methods for those who are running their own server.
 
 A property that if `true` will allow events to be published to the AWS SNS and notifications to be received by the local machine. Defaults to `true`.
 
-#### server.middleware ( configuration )
+#### server.middleware ( configuration ) : Function
 
 Returns a middleware function that any NodeJS server that supports connect middleware can use to link the server with AWS SNS.
 
@@ -457,7 +457,7 @@ Parameters
 
 Returns: A middleware function.
 
-#### server.subscribe ( topicArn, endpoint )
+#### server.subscribe ( topicArn, endpoint ) : Promise
 
 Create an AWS SNS subscription to the specified topic for the server.
 
@@ -467,9 +467,9 @@ Parameters
 
 - *endpoint* - The public endpoint URL for this server.
 
-Returns: undefined
+Returns: A promise that resolves on subscription confirmation or that rejects on error.
 
-#### server.unsubscribe ( topicArn, endpoint )
+#### server.unsubscribe ( topicArn, endpoint ) : Promise
 
 Remove an AWS SNS subscription to the specified topic for the server.
 
@@ -479,4 +479,4 @@ Parameters
 
 - *endpoint* - The public endpoint URL for this server.
 
-Returns: undefined
+Returns: A promise that resolves on unsubscribe request completion or that rejects on error.
