@@ -101,6 +101,7 @@ exports.aggregator = function(configuration) {
             records.forEach(function(record) {
                 const attr = record.attributes;
                 const isError = attr.ScatherResponseError;
+                const reqId = attributes.ScatherRequestId;
                 const senderName = attr.ScatherFunctionName;
 
                 // delete reference from the wait map
@@ -108,10 +109,12 @@ exports.aggregator = function(configuration) {
                 if (index !== -1) missing.splice(index, 1);
 
                 // store the result (if it's not an error)
-                if (!isError) result[senderName] = record.message;
-
-                Req.info('Received response to request ' + attributes.ScatherRequestId + ' from ' + senderName);
-                if (isError) Req.warn('Response from ' + senderName + ' reporting an error: ' + record.message);
+                if (!isError) {
+                    result[senderName] = record.message;
+                    Req.info('Received response to request ' + reqId + ' from ' + senderName);
+                } else {
+                    Req.warn('Received response to request ' + reqId + ' from ' + senderName + ' as an error: ' + record.message);
+                }
             });
 
             // all expected responses received and min timeout passed, so resolve the deferred promise
