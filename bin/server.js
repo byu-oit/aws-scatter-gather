@@ -131,14 +131,13 @@ function parseBody(req, callback) {
     });
 
     req.on('end', function() {
-        var err = null;
-        var obj = null;
         try {
-            obj = JSON.parse(body);
+            var obj = JSON.parse(body);
+            if (callback) callback(null, obj);
         } catch (err) {
-            err = Error('Unexpected body format received. Expected application/json, received: ' + body);
+            var e = Error('Unexpected body format received. Expected application/json, received: ' + body);
+            if (callback) callback(e, null);
         }
-        if (callback) callback(null, obj);
         callback = null;
     });
 }
