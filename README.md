@@ -66,7 +66,7 @@ const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
 exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, data + 1);
+    callback(null, message + 1);
 });
 ```
 
@@ -78,7 +78,7 @@ const Scather   = require('aws-scatter-gather');
 
 // define the SNS post handler
 exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, data * 2);
+    callback(null, message * 2);
 });
 ```
 
@@ -367,7 +367,7 @@ Returns: An object with `.info`, `.warn`, and `.error` properties that are funct
 ```js
 // create a logger instance
 const Scather = require('aws-scatter-gather');
-const myLog = Scather.Logger('my-log');
+const myLog = Scather.logger('my-log');
 myLog.info('My logger created');
 ```
 
@@ -378,7 +378,7 @@ A boolean property value that if set to true will log all events for the system 
 ```js
 // log all events
 const Scather = require('aws-scatter-gather');
-Scather.Logger.events = true;
+Scather.logger.events = true;
 ```
 
 #### logger.silent
@@ -388,7 +388,7 @@ A boolean property value that sets the default logging to console mode. If set t
 ```js
 // log scather events to the console
 const Scather = require('aws-scatter-gather');
-Scather.Logger.silent = false;
+Scather.logger.silent = false;
 ```
 
 ### mock
