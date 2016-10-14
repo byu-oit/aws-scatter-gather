@@ -1,10 +1,11 @@
 {
-  "name": "aggregator",
+  "name": "orchestra",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "orchestra.js",
   "scripts": {},
   "author": "",
+  "private": true,
   "dependencies": {
     "aws-sdk": "^2.5.3",
     "aws-scatter-gather": "^1.1.0"

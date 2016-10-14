@@ -7,7 +7,7 @@
   "author": "",
   "dependencies": {
     "aws-sdk": "^2.5.3",
-    "aws-scatter-gather": "^1.0.0"
+    "aws-scatter-gather": "^1.1.0"
   },
   "license": "Apache-2.0"
 }
