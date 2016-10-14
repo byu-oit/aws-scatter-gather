@@ -15,8 +15,11 @@
  *    limitations under the License.
  **/
 'use strict';
-const listeners = {};
+const globalKey = 'aws-scatter-gather-event-interface-listeners';
+const listeners = global[globalKey] ? global[globalKey] : {};
 var any = [];
+
+global[globalKey] = listeners;
 
 exports.LOG = 'log';
 exports.NOTIFICATION = 'notification';
