@@ -425,16 +425,41 @@ Parameters
 
     - *done* - Optional. A function that is called when the response is finished. It takes two parameters, `error` and `data`. If there are no errors then set the `error` value to `null`. The value sent as `data` will be the value that the aggregator receives. If this parameter is omitted then the function will return a promise.
 
-Returns: Function. When the function is called, if it is called with a third parameter (a callback function) then the callback will be called when completed. **If the third parameter is omitted then the function will return a promise.**
+Returns: Function. **This function can either use a callback paradigm or a promise paradigm.** When the function is called, if it is called with a third parameter (a callback function) then the callback will be called when completed. If the third parameter is omitted then the function will return a promise.
+
+##### Response Callback Paradigm Example
 
 ```js
 const AWS = require('aws-sdk');
 const Scather = require('./index');
 
-exports.handler = Scather.response(function(data, attributes, done) {
+exports.handler = Scather.response(function(message, context, callback) {
     // only the data for aggregator events will cause this function to execute
-    done(null, data * 2);
+    callback(null, message * 2);
 });
+```
+##### Response Promise Paradigm Example
+
+This example is not the greatest, but it gets the point across.
+
+```js
+const AWS = require('aws-sdk');
+const Scather = require('./index');
+
+const respond = Scather.response(function(message, context) {
+    // only the data for aggregator events will cause this function to execute
+    return message * 2;
+});
+
+exports.handler = function(event, context, callback) {
+    respond(event, context)
+        .then(function(value) {
+            callback(null, value);
+        })
+        .catch(function(err) {
+            callback(err, null);
+        });
+};
 ```
 
 ### server
