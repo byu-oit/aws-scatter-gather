@@ -19,5 +19,5 @@ const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
 exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, data + 1);
+    callback(null, message + 1);
 });

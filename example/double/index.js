@@ -18,7 +18,6 @@
 const AWS       = require('aws-sdk');
 const Scather   = require('aws-scatter-gather');
 
-// define the SNS post handler
 exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, data * 2);
+    callback(null, message * 2);
 });
