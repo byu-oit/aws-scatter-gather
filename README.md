@@ -2,9 +2,46 @@
 
 The purpose of this module is to facilitate distributed computing while using a scatter gather design pattern with AWS SNS Topics.
 
-An aggregator makes a request via AWS SNS that any number of listeners can respond to. The aggregator will compile the responses that are directed at it.
+## Table of Contents
 
-Using this package, both the aggregator and responders can exist within long running processes or within short lived processes (like an AWS Lambda).
+[Scatter-Gather Overview](#scatter-gather-overview)
+
+## Scatter-Gather Overview
+
+There are two types of processes involved in scatter-gather:
+
+1. Aggregators - Sends a request and gather's responses.
+
+2. Responders - Receives a request and sends a response.
+
+Look at the following diagram that has one aggregator and two responders:
+
+![Scatter-Gather Concept](./img/concept.png)
+
+1. The aggregator publishes out a single request to an AWS SNS Topic.
+
+2. The SNS Topic pushes the event to all subscribers (Responder A and Responder B).
+
+3. Eventually Responder A publishes a response to the SNS Topic that the SNS Topic will push to the aggregator.
+
+4. Eventually Responder B publishes a response to the SNS Topic that the SNS Topic will push to the aggregator.
+
+In reality by having a single SNS Topic for both requests and responses we get a lot of superfluous network chatter, as can be seen in the following diagram:
+
+![Scatter-Gather Single Topic Problem](./img/reality.png)
+
+You can see from this diagram that because the aggregator and responders are subscribed to the same topic that they publish to, that topic pushes the events to the caller as well.
+
+The solution to this is to have two SNS Topics. The aggregator publishes to the topic that responders are subscribed to. Responders publish to the topic that the aggregator is subscribed to. See the following diagram:
+
+![Scatter-Gather Multiple Topics](./img/fix.png)
+
+
+
+
+
+
+Using this package, aggregators must exist in an environment where it is able to receive SNS Topic events on running processes. Although it's probably possible to do this on an AWS lambda, it's not recommended. Responders on the other hand can exist within long running processes or within short lived processes (like an AWS Lambda).
 
 **If you plan on using Lambdas then the Lambdas must have a role that allows for publishing to AWS SNS Topics.**
 
@@ -33,30 +70,43 @@ The following diagram outlines the basic flow of this information when using an 
 
 #### Code Examples
 
-##### AWS Lambda Aggregator
+##### Aggregator Running on Express Server
+
+This example is a bit more complex because it requires that you also set up a NodeJS server to gather the results. You'd put this code on a long running process.
 
 ```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
+const AWS               = require('aws-sdk');
+const express           = require('express');
+const Scather           = require('aws-scatter-gather');
 
-exports.handler = function(event, context, callback) {
+const app = express();
+const topicArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
+
+// your server will now process AWS SNS Notifications, Subscription Confirmations, etc.
+app.use(Scather.server.middleware());
+
+// start the server listening on port 3000
+app.listen(3000, function () {
+
+    // subscribe your server to a specific topic arn
+    Scather.server.subscribe(topicArn, 'http://my-server.com:3000');
 
     // define the request configuration
     const aggregator = Scather.aggregator({
         expects: [ 'increment', 'double' ],
-        topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
+        topicArn: topicArn
     });
 
     // make the request
     aggregator(5, function(err, data) {
         if (err) {
-            callback(err, null);
+            console.error(err.stack);
         } else {
-            // ... run some code ...
-            callback(null, data);   // data: { increment: 6, double: 10 }
+            // ... run your code to process aggregated results ...
+            console.log(data);    // { increment: 6, double: 10 }
         }
     });
-};
+});
 ```
 
 ##### AWS Lambda Increment Response
