@@ -36,9 +36,65 @@ The solution to this is to have two SNS Topics. The aggregator publishes to the 
 
 ![Scatter-Gather Multiple Topics](./img/fix.png)
 
+## Code Examples
 
+##### Aggregator Example
 
+The aggregator must exist on a computer process that is capable of both sending and receiving SNS Topic events. That pretty much rules out AWS Lambda functions.
 
+Although this example is to the point, a better example can be found in the [Getting Started](#getting-started) section.
+
+```js
+const AWS               = require('aws-sdk');
+const express           = require('express');
+const Scather           = require('aws-scatter-gather');
+
+// create an express app and define the topics
+const app = express();
+const requestArn = 'arn:aws:sns:us-west-2:064824991063:TopicX'
+const responseArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
+
+// your server will now process AWS SNS Notifications, Subscription Confirmations, etc.
+app.use(Scather.server.middleware());
+
+// start the server listening on port 3000
+app.listen(3000, function () {
+
+    // subscribe your server to a specific topic arn
+    Scather.server.subscribe(responseArn, 'http://my-server.com:3000');
+
+    // define the request configuration
+    const aggregator = Scather.aggregator({
+        expects: [ 'greet' ],
+        responseArn: responseArn
+        topicArn: requestArn
+    });
+
+    // make the request
+    aggregator('Bob', function(err, data) {
+        if (err) {
+            console.error(err.stack);
+        } else {
+            console.log(data.greet);    // 'Hello, Bob'
+        }
+    });
+});
+```
+
+##### Responder Example
+
+A responder runs best on an AWS Lambda that is subscribed to run on the response SNS Topic ARN.
+
+The name of this particular lambda is `greet` which matches the item that the aggregator expects in the example above.
+
+```js
+const AWS       = require('aws-sdk');
+const Scather   = require('aws-scatter-gather');
+
+exports.handler = Scather.response(function(message, context, callback) {
+    callback(null, 'Hello, ' + message);
+});
+```
 
 
 Using this package, aggregators must exist in an environment where it is able to receive SNS Topic events on running processes. Although it's probably possible to do this on an AWS lambda, it's not recommended. Responders on the other hand can exist within long running processes or within short lived processes (like an AWS Lambda).
