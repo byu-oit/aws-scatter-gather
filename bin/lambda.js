@@ -34,7 +34,7 @@ module.exports = function(configuration, handler) {
                     try { event = JSON.parse(record.Sns.Message); } catch (e) {}
                     if (event && event.requestId) {
                         debug('Received notification event ' + event.requestId + ' with data: ' + event.data, event);
-                        promises.push(configuration.handler(event.data, event));
+                        promises.push(config.handler(event.data, event));
                     }
                 }
             });
