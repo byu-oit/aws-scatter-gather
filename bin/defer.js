@@ -15,7 +15,6 @@
  *    limitations under the License.
  **/
 'use strict';
-const Promise       = require('bluebird');
 
 module.exports = defer;
 
