@@ -44,10 +44,12 @@ function aggregator(config, data) {
     const missing = config.expects.slice(0);
     const result = {};
     var minTimeoutReached = false;
+    var pending = true;
 
     // if maximum delay is reached then resolve
     const maxTimeoutId = setTimeout(function() {
-        if (deferred.promise.isPending()) {
+        if (pending) {
+            pending = false;
             debug('Reached maximum wait time.', event);
             deferred.resolve(result);
         }
@@ -56,7 +58,8 @@ function aggregator(config, data) {
     // if minimum delay is reached and nothing is missing then resolve
     setTimeout(function() {
         minTimeoutReached = true;
-        if (missing.length === 0 && deferred.promise.isPending()) {
+        if (missing.length === 0 && pending) {
+            pending = false;
             clearTimeout(maxTimeoutId);
             debug('Reached minimum wait time', event);
             deferred.resolve(result);
@@ -80,7 +83,7 @@ function aggregator(config, data) {
     function gatherer(received) {
 
         // if already resolved or rejected then exit now
-        if (!deferred.promise.isPending()) return;
+        if (!pending) return;
 
         // verify that the event is being listened for
         if (received.requestId !== event.requestId) return;
@@ -101,7 +104,10 @@ function aggregator(config, data) {
         if (missing.length === 0) {
             clearTimeout(maxTimeoutId);
             debug('Received all expected responses for request ' + received.requestId);
-            if (minTimeoutReached) deferred.resolve(result);
+            if (minTimeoutReached) {
+                pending = false;
+                deferred.resolve(result);
+            }
         }
     }
 
