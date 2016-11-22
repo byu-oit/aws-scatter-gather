@@ -62,7 +62,7 @@ function ScatherSns(configuration) {
                                 Token: body.Token,
                                 TopicArn: body.TopicArn
                             };
-                            config.sns.confirmSubscription(params, function (err, data) {
+                            config.sns.confirmSubscription(params, function (err) {
                                 debug('Subscription confirmation for ' + body.TopicArn +
                                     (err ? ' failed: ' + err.message: ' succeeded.'), params);
                                 if (err) return subscriptions[body.TopicArn].reject(err);
@@ -100,7 +100,7 @@ function ScatherSns(configuration) {
             TopicArn: topicArn,
             Endpoint: config.endpoint
         };
-        config.sns.subscribe(params, function(err, data) {
+        config.sns.subscribe(params, function(err) {
             debug('Subscription request for ' + topicArn + (err ? ' failed : ' + err.message : ' sent.'));
             if (err) return deferred.reject(err);
         });
@@ -136,7 +136,7 @@ function ScatherSns(configuration) {
 
     // overwrite the server listen function to know when to start making subscriptions
     if (config.subscribe && config.topics.length > 0) {
-        const listen = config.server.listen;
+        const serverListen = config.server.listen;
         config.server.listen = function () {
             const args = Array.prototype.slice.call(arguments, 0);
             const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
@@ -144,17 +144,17 @@ function ScatherSns(configuration) {
                 config.topics.forEach(factory.subscribe);
                 if (callback) callback.apply(config.server, arguments);
             });
-            listen.apply(config.server, args);
+            serverListen.apply(config.server, args);
         };
     }
 
-    // TODO: add event listener that picks up request events and posts to sns topic
+    // add event listener that picks up request events and posts to sns topic
     EventInterface.on('request', function(event) {
         const params = {
             Message: JSON.stringify(event),
             TopicArn: event.topicArn
         };
-        config.sns.publish(params, function(err, data) {
+        config.sns.publish(params, function(err) {
             if (err) {
                 debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
             } else {
