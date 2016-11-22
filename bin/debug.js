@@ -44,36 +44,23 @@ function debug(name, color) {
     }
 }
 
+// read the debug environment variable
+if (process.env.DEBUG) enableDebugs(process.env.DEBUG);
+
 // read command arguments to determine what debug output to turn on
 process.argv.slice(2)
     .forEach(function(arg) {
-        if (arg.indexOf('debug=') === 0) {
-            arg.substr(6)
-                .split(',')
-                .forEach(function(name) {
-                    debug[name] = true;
-                });
-        }
+        if (arg.indexOf('debug=') === 0) enableDebugs(args.substr(6))
     });
 
 
 
-
-/*const debug                 = require('debug');
-
-const verbose = process.argv.slice(2).filter(function(v) { return v === '-v'; }).length > 0;
-
-module.exports = function(name) {
-    const fn = debug(name);
-    const pid = '' + process.pid;
-    const length = pid.length + (process.pid > .9 * Math.pow(10, pid.length) ? 3 : 2);
-    const prefix = fixedLength('', 12 - name.length) + fixedLength(pid, length);
-    return function(message, event) {
-        var details = '';
-        if (verbose && event) details = ('\n' + JSON.stringify(event, null, 2)).replace(/\n/g, '\n    ');
-        fn(prefix + message + details);
-    }
-};*/
+function enableDebugs(str) {
+    str.split(',')
+        .forEach(function(name) {
+            debug[name] = true;
+        })
+}
 
 function fixedLength(str, length) {
     str = str.substr(0, length);
