@@ -29,6 +29,7 @@ function ScatherSns(configuration) {
     const config = schemas.middleware.normalize(configuration || {});
     const factory = Object.create(ScatherSns.prototype);
     const subscriptions = {};
+    const publishedRequests = {};
     if (!config.sns) config.sns = new AWS.SNS();
 
     /**
@@ -150,22 +151,47 @@ function ScatherSns(configuration) {
 
     // add event listener that picks up request events and posts to sns topic
     EventInterface.on('request', function(event) {
-        const params = {
-            Message: JSON.stringify(event),
-            TopicArn: event.topicArn
-        };
-        config.sns.publish(params, function(err) {
-            if (err) {
-                debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+
+        // if will be an endless loop due to the same topic and response arn then don't let it go on
+        if (event.topicArn === event.responseArn) {
+            if (publishedRequests[event.requestId] && similarObject(event, publishedRequests[event.requestId])) {
+                delete publishedRequests[event.requestId];
+                return;
             } else {
-                debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
+                publishedRequests[event.requestId] = event;
+                setTimeout(function() { delete publishedRequests[event.requestId]; }, 120000);
             }
-        });
+        }
+
+        (subscriptions[event.responseArn].promise || Promise.resolve())
+            .then(function() {
+                const params = {
+                    Message: JSON.stringify(event),
+                    TopicArn: event.topicArn
+                };
+                config.sns.publish(params, function(err) {
+                    if (err) {
+                        debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                    } else {
+                        debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
+                    }
+                });
+            });
     });
 
     return factory;
 }
 
+function similarObject(a, b) {
+    const keys = Object.keys(a);
+    var i;
+    var key;
+    for (i = 0; i < keys.length; i++) {
+        key = keys[i];
+        if (a[key] !== b[key]) return false;
+    }
+    return true;
+}
 
 /**
  * Parse the response body.
