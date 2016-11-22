@@ -88,7 +88,7 @@ exports.middleware = Schemata({
     },
     sns: {
         help: 'Expected an AWS sns instance.',
-        validate:function(v) { return v instanceof AWS.SNS }
+        validate:function(v) { return v && v.config.constructor.name === 'Config' && v.endpoint.constructor.name === 'Endpoint' }
     },
     subscribe: {
         defaultValue: true,
