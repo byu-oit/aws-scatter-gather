@@ -25,6 +25,7 @@ module.exports = function(configuration, handler) {
 
     return function(event, context, callback) {
         const promises = [];
+        debug('Called with' + (handler ? '' : 'out') + ' secondary handler.', event);
 
         // if the event has scather data then emit internal events to handle the request
         if (event.hasOwnProperty('Records')) {
@@ -44,17 +45,21 @@ module.exports = function(configuration, handler) {
             Promise.all(promises)
                 .then(
                     function() {
+                        debug('Calling secondary handler after scather success.');
                         handler(event, context, callback);
-                    }, function() {
+                    }, function(err) {
+                        debug('Calling secondary handler after scather error: ' + err.stack);
                         handler(event, context, callback);
                     }
                 );
         } else {
             Promise.all(promises)
                 .then(function(data) {
+                    debug('Success');
                     callback(null, data);
                 })
                 .catch(function(err) {
+                    debug('Error: ' + err.stack);;
                     callback(err, null);
                 });
         }
