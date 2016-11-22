@@ -1,13 +1,14 @@
 {
-  "name": "increment",
+  "name": "server",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {},
   "author": "",
   "dependencies": {
+    "aws-scatter-gather": "^1.1.0",
     "aws-sdk": "^2.5.3",
-    "aws-scatter-gather": "^1.1.0"
+    "express": "^4.14.0"
   },
   "license": "Apache-2.0"
 }

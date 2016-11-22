@@ -15,21 +15,14 @@
  *    limitations under the License.
  **/
 'use strict';
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
 
-exports.handler = function(event, context, callback) {
-
-    // define the request configuration
-    const aggregator = Scather.aggregator({
-        expects: [ 'increment', 'double' ],
-        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX',
-        topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-    });
-
-    // make the request
-    aggregator(5, function(err, data) {
-        // ... run some code ...
-        callback(err, data);
-    });
+module.exports = function(promise, callback) {
+    if (typeof callback === 'function') {
+        promise.then(
+            function(value) { callback(null, value); },
+            function(error) { callback(error, null); }
+        );
+    } else {
+        return promise;
+    }
 };

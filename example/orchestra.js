@@ -15,23 +15,23 @@
  *    limitations under the License.
  **/
 'use strict';
-const AWS               = require('aws-sdk');
-const Scather           = require('aws-scatter-gather');
+const aggregators       = require('./server/aggregators');
+const Scather           = require('../index');
 
-// don't sent events to or receive events from aws lambda
-Scather.server.enabled = false;
+const promises = [
+    Scather.orchestrate('./responders/german/index'),
+    Scather.orchestrate('./responders/spanish/index')
+];
 
-// include lambda index files
-const aggregator        = require('./aggregator/index');
-const double            = require('./double/index');
-const increment         = require('./increment/index');
-
-// create a mock subscription for the responders
-const requestArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
-Scather.local.subscribe(requestArn, 'double', double.handler);
-Scather.local.subscribe(requestArn, 'increment', increment.handler);
-
-// execute the aggregator function
-aggregator.handler({}, {}, function(err, data) {
-    console.log(err, data);
-});
+Promise.all(promises)
+    .then(function() {
+        return aggregators.greetings('James');
+    })
+    .then(function(data) {
+        Scather.orchestrate.end();
+        console.log('Result: ' + JSON.stringify(data, null, 2));
+    })
+    .catch(function(err) {
+        Scather.orchestrate.end();
+        console.error(err.stack);
+    });

@@ -16,6 +16,26 @@
  **/
 
 'use strict';
+
+// look for DEBUG parameter
+const rx =/^DEBUG=([\s\S]+?)$/;
+var match;
+for (var i = 2; i < process.argv.length; i++) {
+    match = rx.exec(process.argv[i]);
+    if (match) process.env.DEBUG = match[1];
+}
+
+module.exports = {
+    aggregator          : require('./bin2/aggregator'),
+    events              : require('./bin2/event-interface'),
+    lambda              : require('./bin2/lambda'),
+    orchestrate         : require('./bin2/orchestrate'),
+    response            : require('./bin2/response'),
+    sns                 : require('./bin2/sns')
+};
+
+
+/*
 const EventInterface    = require('./bin/event-interface');
 const Log               = require('./bin/log');
 const Mock              = require('./bin/mock');
@@ -38,4 +58,4 @@ module.exports = {
     mock: Mock,
     response: Scather.response,
     server: Server
-};
+};*/

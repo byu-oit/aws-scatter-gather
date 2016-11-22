@@ -2,9 +2,25 @@
 
 The purpose of this module is to facilitate distributed computing while using a scatter gather design pattern with AWS SNS Topics.
 
+
+# THIS IS CURRENTLY OUT OF DATE - WILL BE FIXED VERY SOON
+
+
+
+
+
 ## Table of Contents
 
-[Scatter-Gather Overview](#scatter-gather-overview)
+- [Install](#install)
+- [Scatter-Gather Overview](#scatter-gather-overview)
+- [Code Examples](#code-examples)
+- [Getting Started](#getting-started)
+
+## Install
+
+```sh
+$ npm install aws-scatter-gather
+```
 
 ## Scatter-Gather Overview
 
@@ -101,145 +117,134 @@ Using this package, aggregators must exist in an environment where it is able to
 
 **If you plan on using Lambdas then the Lambdas must have a role that allows for publishing to AWS SNS Topics.**
 
-## Install
+## Getting Started
 
-```sh
-$ npm install aws-scatter-gather
-```
+This section of the documentation is a tutorial about getting your first scatter-gather application up and running. We'll talk about local development first and then briefly cover how to get that deployed and ready for production.
 
-## Basic Example
+The objective of this tutorial is to create a web server that you can post requests to. Each request will use the aggregator to gather results and return them.
 
-For this example, assume we have a single SNS Topic and three AWS lambdas that are subscribed to it:
+1. Create your project directory.
 
-- **Aggregator** - Makes a request to other lambdas to do mathematical calculations on a number, and gathers responses.
-- **Increment** - A response generator that accepts a request, adds `1` to the number, and sends a response back.
-- **Double** - A response generator that accepts a request, doubles the number, and sends a response back.
+2. Create the responder **double** that will receive a number and publish it's value doubled.
 
-The following diagram outlines the basic flow of this information when using an AWS SNS Topic:
+    1. Create a folder within your project directory named `double`.
 
-![Basic Example](./img/basic-example.png)
+    2. Within that folder create a file named `index.js`. The name is important because we can plug it directly into an AWS Lambda later.
 
-1. The Aggregator sends an event to the SNS Topic. The event is formatted in such a way that both Increment and Double can recognize it as a Scather request.
-2. The SNS Topic causes both Increment and Double to run.
-3. Increment and Double do their processing and push a new event to the SNS Topic. This event is formatted in such a way that the Aggregator knows that the response event is intended specifically for it.
-4. The Aggregator compiles the responses.
+    3. Inside of `double/index.js` put this code:
 
-#### Code Examples
+    ```js
+    'use strict';
+    const AWS       = require('aws-sdk');
+    const Scather   = require('aws-scatter-gather');
 
-##### Aggregator Running on Express Server
-
-This example is a bit more complex because it requires that you also set up a NodeJS server to gather the results. You'd put this code on a long running process.
-
-```js
-const AWS               = require('aws-sdk');
-const express           = require('express');
-const Scather           = require('aws-scatter-gather');
-
-const app = express();
-const topicArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
-
-// your server will now process AWS SNS Notifications, Subscription Confirmations, etc.
-app.use(Scather.server.middleware());
-
-// start the server listening on port 3000
-app.listen(3000, function () {
-
-    // subscribe your server to a specific topic arn
-    Scather.server.subscribe(topicArn, 'http://my-server.com:3000');
-
-    // define the request configuration
-    const aggregator = Scather.aggregator({
-        expects: [ 'increment', 'double' ],
-        topicArn: topicArn
+    exports.handler = Scather.response(function(message, context, callback) {
+        callback(null, message * 2);
     });
+    ```
 
-    // make the request
-    aggregator(5, function(err, data) {
-        if (err) {
-            console.error(err.stack);
-        } else {
-            // ... run your code to process aggregated results ...
-            console.log(data);    // { increment: 6, double: 10 }
-        }
+    4. From the command line or a terminal:
+
+        1. Navigate to your project directory
+        2. Navigate into the `double` directory
+        3. Type the command `npm init` to create a package.json file.
+        4. Install the aws-scatter-gather dependency: `npm install --save aws-scatter-gather`
+
+    5. At this point your project directory should look like this:
+
+        - **my-project**
+                - **double**
+                    - **node_modules**
+                    - index.js
+                    - package.json
+
+3. Create a responder **increment** that will receive a number and publish it's value incremented by one.
+
+    1. Create a folder within your project directory named `increment`.
+
+    2. Within that folder create a file named `index.js`. The name is important because we can plug it directly into an AWS Lambda later.
+
+        3. Inside of `increment/index.js` put this code:
+
+        ```js
+        'use strict';
+        const AWS       = require('aws-sdk');
+        const Scather   = require('aws-scatter-gather');
+
+        exports.handler = Scather.response(function(message, context, callback) {
+            callback(null, message + 1);
+        });
+        ```
+
+        4. From the command line or a terminal:
+
+            1. Navigate to your project directory
+            2. Navigate into the `increment` directory
+            3. Type the command `npm init` to create a package.json file.
+            4. Install the aws-scatter-gather dependency: `npm install --save aws-scatter-gather`
+
+        5. At this point your project directory should look like this:
+
+            - **my-project**
+                    - **double**
+                        - **node_modules**
+                        - index.js
+                        - package.json
+                    - **increment**
+                        - **node_modules**
+                        - index.js
+                        - package.json
+
+
+### Local Development
+
+1. Structure your file system like this:
+
+    - **my-project**x
+        - **double**
+            - index.js
+            - package.json
+        - **increment**
+            - index.js
+            - package.json
+        - **server**
+            - aggregators.js
+            - index.js
+            - test.js
+            - package.json
+        - orchestra.js
+        - package.json
+
+    Be sure to include the `aws-sdk` and `aws-scatter-gather` packages as dependencies in each package.json file.
+
+2. If your computer is behind a NAT or a firewall and you want receive events from the remote AWS SNS then use [ngrok](https://ngrok.com/) or something similar to create a tunnel from the public internet to your local machine. Only do this if you want to receive events from AWS SNS because you'll already get local events.
+
+3. The orchestra.js should be something like this:
+
+    ```js
+    const AWS               = require('aws-sdk');
+    const Scather           = require('aws-scatter-gather');
+
+    // include lambda index files
+    const aggregator        = require('./aggregator/index');
+    const double            = require('./double/index');
+    const increment         = require('./increment/index');
+
+    // create a mock subscription for the responders
+    const requestArn = 'arn:aws:sns:us-west-2:064824991063:TopicY';
+    Scather.local.subscribe(requestArn, 'double', double.handler);
+    Scather.local.subscribe(requestArn, 'increment', increment.handler);
+
+    // execute the aggregator function
+    aggregator.handler({}, {}, function(err, data) {
+        console.log(err, data);
     });
-});
-```
+    ```
 
-##### AWS Lambda Increment Response
+    The above example does not require you to have a network connection to AWS.
 
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
+4. Run your orchestra.js code in debug mode and use an inspector to troubleshoot errors.
 
-exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, message + 1);
-});
-```
-
-##### AWS Lambda Double Response
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-// define the SNS post handler
-exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, message * 2);
-});
-```
-
-It should be noted that there is a flaw in the basic example design that you may or may not be willing to live with. Take a look at this more accurate representation of the basic example:
-
-![Realistic Example](./img/realistic-example.png)
-
-Because there is a single SNS Topic for all traffic, the Aggregator lambda will start another Aggregator lambda to look at the event that it will ultimately ignore. Also, the Increment and Double lambda will fire up other Increment and Double lambdas to look at responses that are ultimately ignored.
-
-To overcome this we can look to the [Better Example](#better-example).
-
-## Better Example
-
-For this example, assume we have two SNS Topics and three AWS lambdas.
-
-The three lambdas are:
-
-- **Aggregator** - Makes a request to other lambdas to do mathematical calculations on a number, and gathers responses.
-- **Increment** - A response generator that accepts a request, adds `1` to the number, and sends a response back.
-- **Double** - A response generator that accepts a request, doubles the number, and sends a response back.
-
-The following diagram outlines the flow of this information when using two AWS SNS Topics:
-
-![Basic Example](./img/better-example.png)
-
-1. The Aggregator sends an event to the SNS Topic that Increment and Double are subscribed to. The event is formatted in such a way that both Increment and Double can recognize it as a Scather request.
-2. The SNS Topic causes both Increment and Double to run.
-3. Increment and Double do their processing and push a new event to the SNS Topic that the Aggregator is subscribed to. This event is formatted in such a way that the Aggregator knows that the response event is intended specifically for it.
-4. The Aggregator compiles the responses.
-
-#### Code Example
-
-The Increment and Double lambdas have no change to their code from the previous [Basic Example](#basic-example). The Aggregator lambda adds a `responseArn` property to it's configuration. The responding lambdas will automatically send their responses to the specified responseArn. That's the only code change.
-
-##### AWS Lambda Better Aggregator
-
-```js
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
-
-exports.handler = function(event, context, callback) {
-
-    // define the request configuration
-    const aggregator = Scather.aggregator({
-        expects: [ 'increment', 'double' ],
-        responseArn: 'arn:aws:sns:us-west-2:064824991063:TopicX',
-        topicArn: 'arn:aws:sns:us-west-2:064824991063:TopicY'
-    });
-
-    // make the request
-    aggregator(5, function(err, data) {
-        // ... run some code ...
-    });
-};
-```
 
 ## Without AWS Lambda
 

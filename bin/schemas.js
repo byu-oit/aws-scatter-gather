@@ -15,7 +15,8 @@
  *    limitations under the License.
  **/
 'use strict';
-const Schemata          = require('object-schemata');
+const AWS                   = require('aws-sdk');
+const Schemata              = require('object-schemata');
 
 exports.request = Schemata({
     expects: {
@@ -57,13 +58,52 @@ exports.response = Schemata({
         defaultValue: false,
         help: 'This must be a boolean',
         transform: function(v) { return !!v; }
+    },
+    functionName: {
+        help: 'This must be a non-empty string.',
+        validate: function(v, is) { return is.string(v) && v.length > 0; },
+        required: true
+    },
+    handler: {
+        help: 'This must be a function.',
+        validate: function(v) { return typeof v === 'function'; },
+        required: true
     }
 });
 
 exports.middleware = Schemata({
+    endpoint: {
+        help: 'This must be a valid URL.',
+        validate: function(v, is) { return is.string(v) && /^https?:\/\/.+/; },
+        required: true
+    },
     passThrough: {
         defaultValue: false,
         transform: function(v) { return !!v; }
+    },
+    server: {
+        help: 'Expected an instance of http server.',
+        validate: function(v) { return v && typeof v.listen === 'function'; },
+        required: true
+    },
+    sns: {
+        help: 'Expected an AWS sns instance.',
+        validate:function(v) { return v instanceof AWS.SNS }
+    },
+    subscribe: {
+        defaultValue: true,
+        transform: function(v) { return !!v }
+    },
+    topics: {
+        help: 'This must be an array of non-empty strings.',
+        defaultValue: [],
+        validate: function(v, is) {
+            if (!Array.isArray(v)) return false;
+            for (var i = 0; i < v.length; i++) {
+                if (!v[0] || !is.string(v[0])) return false;
+            }
+            return true;
+        }
     }
 });
 

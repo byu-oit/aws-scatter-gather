@@ -15,9 +15,25 @@
  *    limitations under the License.
  **/
 'use strict';
-const AWS       = require('aws-sdk');
-const Scather   = require('aws-scatter-gather');
+const uuid                  = require('uuid').v4;
 
-exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, message + 1);
-});
+const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890'.split('');
+const length = chars.length;
+
+module.exports = function() {
+    return uuid()
+        .split('-')
+        .map(function(v) {
+            var num = parseInt(v, 16);
+            var result = '';
+            var mod;
+            var quot;
+            while (num > length) {
+                mod = num % length;
+                num = Math.floor(num / length);
+                result = result + chars[mod];
+            }
+            return result;
+        })
+        .join('');
+};

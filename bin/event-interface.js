@@ -15,114 +15,98 @@
  *    limitations under the License.
  **/
 'use strict';
-const globalKey = 'aws-scatter-gather-event-interface-listeners';
-const listeners = global[globalKey] ? global[globalKey] : {};
-var any = [];
 
-global[globalKey] = listeners;
-
-exports.LOG = 'log';
-exports.NOTIFICATION = 'notification';
-exports.PUBLISH = 'publish';
-exports.SNS = 'sns';
-exports.SUBSCRIBE = 'subscribe';
-exports.UNSUBSCRIBE = 'unsubscribe';
+const subscriptions = HandlerMap();
 
 /**
- * Fire an event.
- * @param {string} type
+ * Emit an event.
  * @param {*} event
- * @returns {exports}
  */
-exports.fire = function(type, event) {
+exports.emit = function(event) {
+    const args = evaluateArguments(arguments);
     process.nextTick(function() {
-        if (Array.isArray(listeners[type])) {
-            listeners[type] = fire(listeners[type], event);
-            if (!listeners[type].length) delete listeners[type];
-        }
-        any = fire(any, type, event);
+        subscriptions.execute(args.keys, args.data);
     });
-    return exports;
 };
 
 /**
- * Remove an event listener.
- * @param {string} [type]
- * @param {function} callback
- * @returns {exports}
+ * Stop listening for an event.
+ * @param {function} handler
  */
-exports.off = function(type, callback) {
-    if (typeof arguments[0] === 'function') {
-        callback = arguments[1];
-        const index = getIndex(any, callback);
-        if (index !== -1) any.splice(index, 1);
-    } else if (Array.isArray(listeners[type])) {
-        const index = getIndex(listeners[type], callback);
-        if (index !== -1) listeners[type].splice(index, 1);
-        if (!listeners[type].length) delete listeners[type];
-    }
-    return exports;
+exports.off = function(handler) {
+    const args = evaluateArguments(arguments);
+    subscriptions.unset(args.keys, args.data);
 };
 
 /**
- * Add an event listener.
- * @param {string} [type]
- * @param {function} callback
- * @returns {exports}
+ * Start listening for an event.
+ * @param {string} [name]
+ * @param {string} [id]
+ * @param {function} handler
  */
-exports.on = function(type, callback) {
-    if (typeof arguments[0] === 'function') {
-        callback = arguments[0];
-        const index = getIndex(any, callback);
-        if (index === -1) any.push({ callback: callback, calls: 0, once: false });
-    } else {
-        if (!Array.isArray(listeners[type])) listeners[type] = [];
-        const index = getIndex(listeners[type], callback);
-        if (index === -1) listeners[type].push({ callback: callback, calls: 0, once: false });
-    }
-    return exports;
+exports.on = function(name, id, handler) {
+    const args = evaluateArguments(arguments);
+    subscriptions.set(args.keys, args.data);
 };
 
-/**
- * Add an event listener that will be called at most once. Event listeners added in this manner cannot be removed.
- * @param {string} [type]
- * @param {function} callback
- * @returns {exports}
- */
-exports.once = function(type, callback) {
-    if (typeof arguments[0] === 'function') {
-        callback = arguments[0];
-        const index = getIndex(any, callback);
-        if (index === -1) any.push({ callback: callback, calls: 0, once: true });
-    } else {
-        if (!Array.isArray(listeners[type])) listeners[type] = [];
-        const index = getIndex(listeners[type], callback);
-        if (index === -1) listeners[type].push({ callback: callback, calls: 0, once: true });
-    }
-    return exports;
-};
+function HandlerMap() {
+    const factory = Object.create(HandlerMap.prototype);
+    const children = new Map();
+    const handlers = [];
 
-function getIndex(listeners, callback) {
-    var i;
-    var item;
-    for (i = 0; i < listeners.length; i++) {
-        item = listeners[i];
-        if (item.callback === callback && !item.once) return i;
-    }
-    return -1;
+    factory.execute = function(keys, event) {
+        const key = keys[0];
+        if (children.has(key)) {
+            children.get(key).execute(keys.slice(1), event);
+            runHandlers(handlers, event);
+        }
+        runHandlers(handlers, event);
+    };
+
+    factory.isEmpty = function() {
+        return handlers.length + children.size === 0;
+    };
+
+    factory.set = function(keys, handler) {
+        const key = keys[0];
+        if (keys.length === 0) {
+            if (typeof handler !== 'function') throw Error('Invalid event listener. Expected function. Received: ' + handler);
+            handlers.push(handler);
+        } else if (children.has(key)) {
+            children.get(key).set(keys.slice(1), handler);
+        } else {
+            const map = HandlerMap();
+            map.set(keys.slice(1), handler);
+            children.set(key, map);
+        }
+    };
+
+    factory.unset = function(keys, handler) {
+        const key = keys[0];
+        if (keys.length === 0) {
+            const index = handlers.indexOf(handler);
+            if (index !== -1) handlers.splice(index, 1);
+        } else if (children.has(key)) {
+            children.get(key).unset(keys.slice(1), handler);
+            if (children.get(key).isEmpty()) children.delete(key);
+        }
+    };
+
+    return factory;
 }
 
-function fire(listeners, type, event) {
-    const args = arguments;
-    listeners.forEach(function(l) {
-        if (!l.once || l.calls === 0) {
-            if (args.length === 2) {
-                l.callback(type);
-            } else {
-                l.callback(type, event);
-            }
-        }
-        l.calls++;
+function evaluateArguments(args) {
+    const keys = [];
+    var i;
+    for (i = 0; i < args.length - 1; i++) keys.push(args[i]);
+    return {
+        data: args[args.length - 1],
+        keys: keys
+    }
+}
+
+function runHandlers(handlers, event) {
+    handlers.forEach(function(handler) {
+        handler(event);
     });
-    return listeners.filter(function(l) { return !l.once || l.calls === 0 });
 }

@@ -15,15 +15,8 @@
  *    limitations under the License.
  **/
 'use strict';
-const Promise       = require('bluebird');
+const Scather   = require('aws-scatter-gather');
 
-module.exports = defer;
-
-function defer() {
-    const deferred = {};
-    deferred.promise = new Promise(function(resolve, reject) {
-        deferred.resolve = resolve;
-        deferred.reject = reject;
-    });
-    return deferred;
-}
+exports.handler = Scather.response(function(message, context, callback) {
+    callback(null, 'Bonjour, ' + messsage);
+});
