@@ -23,8 +23,6 @@ const paradigm              = require('./paradigm');
 const schemas               = require('./schemas');
 const uuid                  = require('./uuid');
 
-const store = new WeakMap();
-
 module.exports = function (configuration) {
     const config = schemas.request.normalize(configuration || {});
     return function(data, callback) {
@@ -68,10 +66,7 @@ function aggregator(config, data) {
     // subscribe to responses until the gatherer completes
     EventInterface.on('response', event.responseArn, gatherer);
     debug('Subscribed ' + config.functionName + ' to response:' + event.responseArn, event);
-    deferred.promise.finally(function() {
-        EventInterface.off('response', event.responseArn, gatherer);
-        debug('Unsubscribed ' + config.functionName + ' from response:' + event.responseArn, event);
-    });
+    deferred.promise.then(unsubscribe, unsubscribe);
 
     // fire the event
     EventInterface.emit('request', event.topicArn, event);
@@ -108,5 +103,10 @@ function aggregator(config, data) {
             debug('Received all expected responses for request ' + received.requestId);
             if (minTimeoutReached) deferred.resolve(result);
         }
+    }
+
+    function unsubscribe() {
+        EventInterface.off('response', event.responseArn, gatherer);
+        debug('Unsubscribed ' + config.functionName + ' from response:' + event.responseArn, event);
     }
 }
