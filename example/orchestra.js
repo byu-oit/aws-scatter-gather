@@ -16,7 +16,7 @@
  **/
 'use strict';
 const aggregators       = require('./server/aggregators');
-const Scather           = require('../index');
+const Scather           = require('aws-scatter-gather');
 
 const promises = [
     Scather.orchestrate('./responders/german/index'),
@@ -25,13 +25,11 @@ const promises = [
 
 Promise.all(promises)
     .then(function() {
-        return aggregators.greetings('James');
-    })
-    .then(function(data) {
-        Scather.orchestrate.end();
-        console.log('Result: ' + JSON.stringify(data, null, 2));
-    })
-    .catch(function(err) {
-        Scather.orchestrate.end();
-        console.error(err.stack);
+        // execute the aggregator using a callback paradigm
+        aggregators.greetings('James', function(err, data) {
+
+            // end orchestration so that the process can shut down
+            Scather.orchestrate.end();
+            console.log(err, data);
+        });
     });

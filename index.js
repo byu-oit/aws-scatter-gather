@@ -26,36 +26,10 @@ for (var i = 2; i < process.argv.length; i++) {
 }
 
 module.exports = {
-    aggregator          : require('./bin2/aggregator'),
-    events              : require('./bin2/event-interface'),
-    lambda              : require('./bin2/lambda'),
-    orchestrate         : require('./bin2/orchestrate'),
-    response            : require('./bin2/response'),
-    sns                 : require('./bin2/sns')
+    aggregator          : require('./bin/aggregator'),
+    events              : require('./bin/event-interface'),
+    lambda              : require('./bin/lambda'),
+    orchestrate         : require('./bin/orchestrate'),
+    response            : require('./bin/response'),
+    sns                 : require('./bin/sns')
 };
-
-
-/*
-const EventInterface    = require('./bin/event-interface');
-const Log               = require('./bin/log');
-const Mock              = require('./bin/mock');
-const Scather           = require('./bin/scatter-gather');
-const Server            = require('./bin/server');
-const Subscription      = require('./bin/subscription');
-
-module.exports = {
-    aggregator: Scather.aggregator,
-    events: {
-        off: EventInterface.off,
-        on: EventInterface.on,
-        once: EventInterface.once
-    },
-    local: {
-        subscribe: Subscription.subscribe,
-        unsubscribe: Subscription.unsubscribe
-    },
-    logger: Log,
-    mock: Mock,
-    response: Scather.response,
-    server: Server
-};*/

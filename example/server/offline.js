@@ -17,7 +17,7 @@
 'use strict';
 //process.env.DEBUG = '*';
 const aggregators       = require('./aggregators');
-const Scather           = require('../../index');
+const Scather           = require('aws-scatter-gather');
 
 const promises = [
     Scather.orchestrate('../responders/german/index')
@@ -32,81 +32,3 @@ Promise.all(promises)
             console.log(err, data);
         });
     });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// don't sent events to or receive events from aws lambda
-Scather.server.enabled = false;
-
-// log all events to the console
-Scather.logger.silent = false;
-//Scather.logger.events = true;
-
-const aggregators       = require('./aggregators');
-
-// include lambda index files
-const responders = {
-    //english             : require('../responders/english/index'),
-    //german              : require('../responders/german/index'),
-    //french              : require('../responders/french/index'),
-    spanish             : require('../responders/spanish/index')
-};
-
-console.log('here');
-
-// create a mock subscription for the responders
-const requestArn = 'TopicX';
-//Scather.local.subscribe(requestArn, 'english', responders.english.handler);
-//Scather.local.subscribe(requestArn, 'french', responders.french.handler);
-//Scather.local.subscribe(requestArn, 'german', responders.german.handler);
-Scather.local.subscribe(requestArn, 'spanish', responders.spanish.handler);
-
-// execute the aggregator using a callback paradigm
-aggregators.greet('Tom', function(err, data) {
-    console.log(err, data);
-});*/
-
-// execute the aggregator using a promise paradigm
-/*
-aggregators.greet('Sandy')
-    .then(function(data) {
-        console.log(data);
-    });*/
