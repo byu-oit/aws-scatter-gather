@@ -21,6 +21,8 @@ const schemas           = require('./schemas');
 
 module.exports = function(configuration, handler) {
     const config = schemas.response.normalize(configuration);
+    const usesCallback = /^function [\s\S]*?\(([\s\S]*?)\)/.exec(config.handler.toString())[0].split(',').length === 3;
+
     if (config.development) response(config);
 
     return function(event, context, callback) {
@@ -35,7 +37,21 @@ module.exports = function(configuration, handler) {
                     try { event = JSON.parse(record.Sns.Message); } catch (e) {}
                     if (event && event.requestId) {
                         debug('Received notification event ' + event.requestId + ' with data: ' + event.data, event);
-                        promises.push(config.handler(event.data, event));
+                        const promise = new Promise(function(resolve, reject) {
+                            try {
+                                if (usesCallback) {
+                                    config.handler(event.data, event, function(err, data) {
+                                        if (err) return reject(err);
+                                        resolve(data);
+                                    });
+                                } else {
+                                    resolve(config.handler(event.data, event));
+                                }
+                            } catch (e) {
+                                reject(err);
+                            }
+                        });
+                        promises.push(promise);
                     }
                 }
             });
