@@ -24,6 +24,7 @@ for (var i = 2; i < process.argv.length; i++) {
     match = rx.exec(process.argv[i]);
     if (match) process.env.DEBUG = match[1];
 }
+console.log('debug mode: ' + process.env.DEBUG);
 
 module.exports = {
     aggregator          : require('./bin/aggregator'),
