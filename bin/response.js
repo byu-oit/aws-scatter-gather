@@ -59,21 +59,26 @@ module.exports = function(configuration) {
         }
 
         // publish an event with the response
-        deferred.promise
+        return deferred.promise
             .then(
-                function(message) { sendResponse(null, message, event); },
-                function(err) { sendResponse(config.development ? err.stack : err.message , null, event); }
+                function(message) { return sendResponse(null, message, event, config.eventBased); },
+                function(err) { return sendResponse(config.development ? err.stack : err.message , null, event, config.eventBased); }
             );
     }
 
-    // set up a listener for request events
-    EventInterface.on('request', responseHandler);
-    debug('Subscribed ' + config.functionName + ' to request:*');
+    // if event based then subscribe to events and return unsubscribe, otherwise return handler
+    if (config.eventBased) {
+        // set up a listener for request events
+        EventInterface.on('request', responseHandler);
+        debug('Subscribed ' + config.functionName + ' to request:*');
 
-    // return a function that can be used to end the response handler
-    return function() {
-        EventInterface.off('request', responseHandler);
-        debug('Unsubscribed ' + config.functionName + ' from request:*');
+        // return a function that can be used to end the response handler
+        return function () {
+            EventInterface.off('request', responseHandler);
+            debug('Unsubscribed ' + config.functionName + ' from request:*');
+        }
+    } else {
+        return responseHandler;
     }
 };
 
@@ -90,7 +95,7 @@ function callbackArguments(callback) {
     return args && args.length === 1 && !args[0] ? [] : args;
 }
 
-function sendResponse(err, data, context) {
+function sendResponse(err, data, context, eventBased) {
     const event = {
         data: data,
         error: err,
@@ -98,6 +103,9 @@ function sendResponse(err, data, context) {
         topicArn: context.responseArn,
         requestId: context.requestId
     };
-    EventInterface.emit('response', context.responseArn, event);
-    debug('Emitted ' + event.requestId + ' to response:' + event.topicArn + ' with ' + (err ? 'error: ' + err : 'data: ' + data));
+    if (eventBased) {
+        EventInterface.emit('response', context.responseArn, event);
+        debug('Emitted ' + event.requestId + ' to response:' + event.topicArn + ' with ' + (err ? 'error: ' + err : 'data: ' + data));
+    }
+    return event;
 }
