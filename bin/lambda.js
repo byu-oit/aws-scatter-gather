@@ -15,15 +15,15 @@
  *    limitations under the License.
  **/
 'use strict';
-const debug             = require('./debug')('lambda', 'cyan');
-const response          = require('./response');
-const schemas           = require('./schemas');
+const AWS                   = require('aws-sdk');
+const debug                 = require('./debug')('lambda', 'cyan');
+const response              = require('./response');
+const schemas               = require('./schemas');
 
 module.exports = function(configuration, handler) {
-    const config = schemas.response.normalize(configuration);
-    const usesCallback = /^function [\s\S]*?\(([\s\S]*?)\)/.exec(config.handler.toString())[0].split(',').length === 3;
-
-    if (config.development) response(config);
+    const config = schemas.response.normalize(Object.assign({}, configuration, { eventBased: false }));
+    const res = response(config);
+    const sns = configuration.sns || new AWS.SNS();
 
     return function(event, context, callback) {
         const promises = [];
@@ -36,20 +36,20 @@ module.exports = function(configuration, handler) {
                     var event;
                     try { event = JSON.parse(record.Sns.Message); } catch (e) {}
                     if (event && event.requestId) {
-                        debug('Received notification event ' + event.requestId + ' with data: ' + event.data, event);
-                        const promise = new Promise(function(resolve, reject) {
-                            try {
-                                if (usesCallback) {
-                                    config.handler(event.data, event, function(err, data) {
-                                        if (err) return reject(err);
-                                        resolve(data);
-                                    });
+                        const promise = res(event);
+                        promise.then(function(event) {
+                            const params = {
+                                Message: JSON.stringify(event),
+                                TopicArn: event.topicArn
+                            };
+                            sns.publish(params, function(err) {
+                                if (err) {
+                                    debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
                                 } else {
-                                    resolve(config.handler(event.data, event));
+                                    debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
                                 }
-                            } catch (e) {
-                                reject(err);
-                            }
+                            });
+
                         });
                         promises.push(promise);
                     }
@@ -75,7 +75,7 @@ module.exports = function(configuration, handler) {
                     callback(null, data);
                 })
                 .catch(function(err) {
-                    debug('Error: ' + err.stack);;
+                    debug('Error: ' + err.stack);
                     callback(err, null);
                 });
         }
