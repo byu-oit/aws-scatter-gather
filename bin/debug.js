@@ -50,7 +50,7 @@ if (process.env.DEBUG) enableDebugs(process.env.DEBUG);
 // read command arguments to determine what debug output to turn on
 process.argv.slice(2)
     .forEach(function(arg) {
-        if (arg.indexOf('debug=') === 0) enableDebugs(args.substr(6))
+        if (arg.indexOf('debug=') === 0) enableDebugs(arg.substr(6))
     });
 
 
