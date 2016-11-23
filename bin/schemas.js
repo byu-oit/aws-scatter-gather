@@ -56,7 +56,10 @@ exports.request = Schemata({
 exports.response = Schemata({
     development: {
         defaultValue: false,
-        help: 'This must be a boolean',
+        transform: function(v) { return !!v; }
+    },
+    eventBased: {
+        defaultValue: true,
         transform: function(v) { return !!v; }
     },
     functionName: {
