@@ -39,6 +39,7 @@ function aggregator(config, data) {
         functionName: config.functionName,
         responseArn: responseArn,
         topicArn: config.topicArn,
+        type: 'request',
         requestId: uuid()
     };
     const missing = config.expects.slice(0);

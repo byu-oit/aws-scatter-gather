@@ -101,6 +101,7 @@ function sendResponse(err, data, context, eventBased) {
         error: err,
         functionName: context.functionName,
         topicArn: context.responseArn,
+        type: 'response',
         requestId: context.requestId
     };
     if (eventBased) {
