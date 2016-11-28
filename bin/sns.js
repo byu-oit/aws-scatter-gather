@@ -163,7 +163,7 @@ function ScatherSns(configuration) {
             }
         }
 
-        (subscriptions[event.responseArn].promise || Promise.resolve())
+        (subscriptions[event.responseArn] ? subscriptions[event.responseArn].promise : Promise.resolve())
             .then(function() {
                 const params = {
                     Message: JSON.stringify(event),
