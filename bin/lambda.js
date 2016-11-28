@@ -38,18 +38,19 @@ module.exports = function(configuration, handler) {
                     if (event && event.requestId) {
                         const promise = res(event);
                         promise.then(function(event) {
-                            const params = {
-                                Message: JSON.stringify(event),
-                                TopicArn: event.topicArn
-                            };
-                            sns.publish(params, function(err) {
-                                if (err) {
-                                    debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
-                                } else {
-                                    debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
-                                }
-                            });
-
+                            if (event) {
+                                const params = {
+                                    Message: JSON.stringify(event),
+                                    TopicArn: event.topicArn
+                                };
+                                sns.publish(params, function (err) {
+                                    if (err) {
+                                        debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                                    } else {
+                                        debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
+                                    }
+                                });
+                            }
                         });
                         promises.push(promise);
                     }
