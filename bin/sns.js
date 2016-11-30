@@ -51,8 +51,8 @@ function ScatherSns(configuration) {
                         var event;
                         try { event = JSON.parse(body.Message); } catch (e) {}
                         if (event && event.requestId) {
-                            debug('Received notification event ' + event.requestId + ' with data: ' + event.data, event);
-                            EventInterface.emit(event.type, event.requestId, event);
+                            debug('Received notification event ' + event.type + ':' + event.requestId + ' with data: ' + event.data, event);
+                            EventInterface.emit(event.type, event.topicArn, event);
                         } else {
                             debug('Received unexpected event data.', event ? event : body.message);
                         }
