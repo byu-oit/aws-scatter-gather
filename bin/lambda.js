@@ -34,6 +34,7 @@ module.exports = function(configuration, handler) {
             event.Records.forEach(function(record) {
                 if (record.Sns) {
                     var event;
+                    debug(record.Sns.Message);
                     try { event = JSON.parse(record.Sns.Message); } catch (e) {}
                     if (event && event.requestId && event.type === 'request') {
                         const promise = res(event);
