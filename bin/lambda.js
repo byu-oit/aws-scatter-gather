@@ -35,7 +35,7 @@ module.exports = function(configuration, handler) {
                 if (record.Sns) {
                     var event;
                     try { event = JSON.parse(record.Sns.Message); } catch (e) {}
-                    if (event && event.requestId) {
+                    if (event && event.requestId && event.type === 'request') {
                         const promise = res(event);
                         promise.then(function(event) {
                             if (event) {
