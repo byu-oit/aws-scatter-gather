@@ -15,7 +15,6 @@
  *    limitations under the License.
  **/
 'use strict';
-const Code                  = require('./code');
 const Event                 = require('./event-interface');
 
 module.exports = lambda;
@@ -30,8 +29,7 @@ function lambda(handler) {
         if (event.hasOwnProperty('Records')) {
             event.Records.forEach(function (record) {
                 if (record.Sns) {
-                    const e = Code.decode(record.Sns.Message);
-
+                    const e = decode(record.Sns.Message);
                     if (e && e.requestId && e.type === 'request') {
 
                         // call the handler using the paradigm it expects
@@ -78,3 +76,10 @@ function lambda(handler) {
     }
 }
 
+function decode(str) {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return null;
+    }
+}
