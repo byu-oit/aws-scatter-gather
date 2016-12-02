@@ -16,7 +16,7 @@
  **/
 'use strict';
 const AWS                   = require('aws-sdk');
-const debug                 = require('./debug')('lambda', 'magenta')
+const debug                 = require('./debug')('lambda', 'magenta');
 const schemas               = require('./schemas');
 
 module.exports = lambda;
@@ -24,6 +24,7 @@ module.exports = lambda;
 function lambda(handler) {
     if (!handler.name) throw Error('The handler function must be a named function.');
     const sns = new AWS.SNS();
+    debug('Defined lambda handler: ' + handler.name);
 
     return function(event, context, callback) {
         const promises = [];
