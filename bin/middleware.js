@@ -28,6 +28,7 @@ module.exports = middleware;
 
 function middleware(configuration) {
     const config = schemas.middleware.normalize(configuration || {});
+    const echoes = {};
     const subscriptions = {};
     if (!config.sns) config.sns = new AWS.SNS();
 
@@ -35,11 +36,23 @@ function middleware(configuration) {
     if (!hasRun) {
         hasRun = true;
         EventInterface.on('request', function(event) {
+
+            // handle echoes
+            if (event.topicArn === event.responseArn) {
+                if (echoes[event.requestId]) {
+                    clearTimeout(echoes[event.requestId]);
+                    delete echoes[event.requestId];
+                    debug('Echo cancelled for ' + event.requestId);
+                    return;
+                }
+                echoes[event.requestId] = setTimeout(function() { delete echoes[event.requestId]; }, 300000);
+            }
+
             const params = {
-                Message: exports.encode(event),
+                Message: JSON.stringify(event),
                 TopicArn: event.topicArn
             };
-            sns.publish(params, function (err) {
+            config.sns.publish(params, function (err) {
                 if (err) {
                     debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
                 } else {
