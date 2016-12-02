@@ -15,12 +15,15 @@
  *    limitations under the License.
  **/
 'use strict';
-const Event                 = require('./event-interface');
+const AWS                   = require('aws-sdk');
+const debug                 = require('./debug')('lambda', 'magenta')
+const schemas               = require('./schemas');
 
 module.exports = lambda;
 
 function lambda(handler) {
     if (!handler.name) throw Error('The handler function must be a named function.');
+    const sns = new AWS.SNS();
 
     return function(event, context, callback) {
         const promises = [];
@@ -31,6 +34,7 @@ function lambda(handler) {
                 if (record.Sns) {
                     const e = decode(record.Sns.Message);
                     if (e && e.requestId && e.type === 'request') {
+                        debug('Received sns event ' + e.requestId + ' with data: ' + e.data, e);
 
                         // call the handler using the paradigm it expects
                         var promise = handler.length >= 3
@@ -42,18 +46,33 @@ function lambda(handler) {
                             })
                             : Promise.resolve(handler(e.data));
 
+                        // log errors
+                        promise.catch(function(err) { debug(err.stack, err); });
+
                         // if the incoming event has a response arn then send a response via sns to that arn
                         if (e.responseArn) {
                             promise = promise
                                 .then(function(data) {
-                                    const event = {
+                                    const event = schemas.event.normalize({
                                         data: data,
                                         requestId: e.requestId,
                                         name: handler.name,
                                         topicArn: e.responseArn,
                                         type: 'response'
+                                    });
+
+                                    const params = {
+                                        Message: JSON.stringify(event),
+                                        TopicArn: event.topicArn
                                     };
-                                    Event.emit('response', e.responseArn, event);
+                                    sns.publish(params, function (err) {
+                                        if (err) {
+                                            debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                                        } else {
+                                            debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
+                                        }
+                                    });
+                                    
                                     return event;
                                 });
                         }
