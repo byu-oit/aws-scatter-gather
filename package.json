@@ -17,7 +17,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "postinstall": "node -e \"var s='../',d='node_modules/aws-scatter-gather',fs=require('fs');fs.exists(d,function(e){e||fs.symlinkSync(s,d,'dir')});\"",
+
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
