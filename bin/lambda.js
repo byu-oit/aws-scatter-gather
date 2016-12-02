@@ -22,10 +22,9 @@ const schemas               = require('./schemas');
 module.exports = lambda;
 
 function lambda(handler) {
-    if (!handler.functionName) throw Error('The handler function must be a named function.');
+    if (!handler.name) throw Error('The handler function must be a named function.');
     const sns = new AWS.SNS();
-    const name = handler.functionName;
-    debug('Defined lambda handler: ' + handler.functionName);
+    debug('Defined lambda handler: ' + handler.name);
 
     return function(event, context, callback) {
         const promises = [];
@@ -58,7 +57,7 @@ function lambda(handler) {
                                     const event = schemas.event.normalize({
                                         data: data,
                                         requestId: e.requestId,
-                                        name: name,
+                                        name: handler.name,
                                         topicArn: e.responseArn,
                                         type: 'response'
                                     });
