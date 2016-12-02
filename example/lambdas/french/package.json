@@ -1,13 +1,12 @@
 {
-  "name": "english",
+  "name": "french",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {},
   "author": "",
   "dependencies": {
-    "aws-sdk": "^2.5.3",
-    "aws-scatter-gather": "^1.1.0"
+    "aws-scatter-gather": "byu-oit-appdev/aws-scatter-gather"
   },
   "license": "Apache-2.0"
 }
