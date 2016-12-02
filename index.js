@@ -16,6 +16,16 @@
  **/
 'use strict';
 
+process.on('uncaughtException', (err) => {
+    console.error(err.stack);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error(err.stack);
+    process.exit(1);
+});
+
 module.exports = {
     aggregator:     require('./bin/aggregator'),
     event:          require('./bin/event-interface'),

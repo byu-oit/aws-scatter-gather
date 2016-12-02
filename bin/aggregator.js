@@ -34,13 +34,13 @@ module.exports = function (configuration) {
     const aggregator = function(data, callback) {
         const responseArn = config.responseArn || config.topicArn;
         const deferred = defer();
-        const event = {
+        const event = schemas.event.normalize({
             data: data,
-            functionName: config.functionName,
+            name: config.functionName,
             responseArn: responseArn,
             topicArn: config.topicArn,
             type: 'request'
-        };
+        });
         const missing = config.expects.slice(0);
         const result = {};
         var minTimeoutReached = false;
