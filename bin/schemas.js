@@ -38,7 +38,6 @@ exports.event = Schemata({
     },
     responseArn: {
         help: 'This must be a non-empty string.',
-        required: true,
         validate: nonEmptyString
     },
     topicArn: {
