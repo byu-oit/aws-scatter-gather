@@ -14,23 +14,12 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  **/
-
 'use strict';
 
-// look for DEBUG parameter
-const rx =/^DEBUG=([\s\S]+?)$/;
-var match;
-for (var i = 2; i < process.argv.length; i++) {
-    match = rx.exec(process.argv[i]);
-    if (match) process.env.DEBUG = match[1];
-}
-console.log('debug mode: ' + process.env.DEBUG);
-
 module.exports = {
-    aggregator          : require('./bin/aggregator'),
-    events              : require('./bin/event-interface'),
-    lambda              : require('./bin/lambda'),
-    orchestrate         : require('./bin/orchestrate'),
-    response            : require('./bin/response'),
-    sns                 : require('./bin/sns')
+    aggregator:     require('./bin/aggregator'),
+    event:          require('./bin/event-interface'),
+    lambda:         require('./bin/lambda'),
+    middleware:     require('./bin/middleware'),
+    response:       require('./bin/response')
 };

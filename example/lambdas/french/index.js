@@ -15,8 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
-const Scather   = require('aws-scatter-gather');
+const Scather = require('aws-scatter-gather');
 
-exports.handler = Scather.response(function(message, context, callback) {
-    callback(null, 'Bonjour, ' + messsage);
+exports.response = Scather.response(function french(data) {
+    return 'Bonjour, ' + data;
 });
+
+exports.handler = Scather.lambda(exports.response);

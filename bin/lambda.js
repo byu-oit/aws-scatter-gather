@@ -15,71 +15,66 @@
  *    limitations under the License.
  **/
 'use strict';
-const AWS                   = require('aws-sdk');
-const debug                 = require('./debug')('lambda', 'cyan');
-const response              = require('./response');
-const schemas               = require('./schemas');
+const Code                  = require('./code');
+const Event                 = require('./event-interface');
 
-module.exports = function(configuration, handler) {
-    const config = schemas.response.normalize(Object.assign({}, configuration, { eventBased: false }));
-    const res = response(config);
-    const sns = configuration.sns || new AWS.SNS();
+module.exports = lambda;
+
+function lambda(handler) {
+    if (!handler.name) throw Error('The handler function must be a named function.');
 
     return function(event, context, callback) {
         const promises = [];
-        debug('Called with' + (handler ? '' : 'out') + ' secondary handler.', event);
 
-        // if the event has scather data then emit internal events to handle the request
+        // process each record through the handler
         if (event.hasOwnProperty('Records')) {
-            event.Records.forEach(function(record) {
+            event.Records.forEach(function (record) {
                 if (record.Sns) {
-                    var event;
-                    try { event = JSON.parse(record.Sns.Message); } catch (e) {}
-                    if (event && event.requestId && event.type === 'request') {
-                        debug('Received scather event ' + event.requestId + ' with data: ' + event.data);
-                        const promise = res(event);
-                        promise.then(function(event) {
-                            if (event) {
-                                const params = {
-                                    Message: JSON.stringify(event),
-                                    TopicArn: event.topicArn
-                                };
-                                sns.publish(params, function (err) {
-                                    if (err) {
-                                        debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
-                                    } else {
-                                        debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
-                                    }
+                    const e = Code.decode(record.Sns.Message);
+
+                    if (e && e.requestId && e.type === 'request') {
+
+                        // call the handler using the paradigm it expects
+                        var promise = handler.length >= 3
+                            ? new Promise(function(resolve, reject) {
+                                handler(e.data, function(err, data) {
+                                    if (err) return reject(err);
+                                    resolve(data);
                                 });
-                            }
-                        });
+                            })
+                            : Promise.resolve(handler(e.data));
+
+                        // if the incoming event has a response arn then send a response via sns to that arn
+                        if (e.responseArn) {
+                            promise = promise
+                                .then(function(data) {
+                                    const event = {
+                                        data: data,
+                                        requestId: e.requestId,
+                                        name: handler.name,
+                                        topicArn: e.responseArn,
+                                        type: 'response'
+                                    };
+                                    Event.emit('response', e.responseArn, event);
+                                    return event;
+                                });
+                        }
+
                         promises.push(promise);
                     }
                 }
             });
         }
 
-        if (handler) {
-            Promise.all(promises)
-                .then(
-                    function() {
-                        debug('Calling secondary handler after scather success.');
-                        handler(event, context, callback);
-                    }, function(err) {
-                        debug('Calling secondary handler after scather error: ' + err.stack);
-                        handler(event, context, callback);
-                    }
-                );
-        } else {
-            Promise.all(promises)
-                .then(function(data) {
-                    debug('Success');
-                    callback(null, data);
-                })
-                .catch(function(err) {
-                    debug('Error: ' + err.stack);
-                    callback(err, null);
-                });
-        }
-    };
-};
+        // get a promise that everything completes
+        const completed = Promise.all(promises);
+
+        // return result with promise or callback paradigm
+        if (typeof callback !== 'function') return completed;
+        completed.then(
+            function(data) { callback(null, data); },
+            function(err) { callback(err, null); }
+        );
+    }
+}
+

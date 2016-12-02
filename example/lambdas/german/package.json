@@ -6,7 +6,6 @@
   "scripts": {},
   "author": "",
   "dependencies": {
-    "aws-sdk": "^2.5.3",
     "aws-scatter-gather": "byu-oit-appdev/aws-scatter-gather"
   },
   "license": "Apache-2.0"

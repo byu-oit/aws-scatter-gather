@@ -22,15 +22,56 @@ const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 
 const rxTopicArn = /^arn:aws:sns:[\s\S]+?:\d+:[\s\S]+?$/;
+var hasRun = false;
 
-module.exports = ScatherSns;
+module.exports = middleware;
 
-function ScatherSns(configuration) {
+function middleware(configuration) {
     const config = schemas.middleware.normalize(configuration || {});
-    const factory = Object.create(ScatherSns.prototype);
     const subscriptions = {};
-    const publishedRequests = {};
     if (!config.sns) config.sns = new AWS.SNS();
+
+    // for any requests send them to an sns topic
+    if (!hasRun) {
+        hasRun = true;
+        EventInterface.on('request', function(event) {
+            const params = {
+                Message: exports.encode(event),
+                TopicArn: event.topicArn
+            };
+            sns.publish(params, function (err) {
+                if (err) {
+                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                } else {
+                    debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
+                }
+            });
+        });
+    }
+
+    // overwrite the server listen function to know when to start making subscriptions
+    if (config.subscribe && config.topics.length > 0) {
+        const serverListen = config.server.listen;
+        config.server.listen = function () {
+            const args = Array.prototype.slice.call(arguments, 0);
+            const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
+            args.push(function () {
+                const promises = config.subscribe ? config.topics.map(subscribe) : [];
+                if (callback) {
+                    Promise.all(promises).then(
+                        function() { callback.apply(config.server, arguments) },
+                        function() { callback.apply(config.server, arguments) }
+                    );
+                }
+            });
+            serverListen.apply(config.server, args);
+        };
+    }
+
+    // when the server closes then unsubscribe topics
+    config.server.on('close', function() {
+        if (config.subscribe) config.topics.forEach(unsubscribe);
+    });
 
     /**
      * A connect middleware function.
@@ -39,7 +80,7 @@ function ScatherSns(configuration) {
      * @param next
      * @returns {*}
      */
-    factory.middleware = function(req, res, next) {
+    return function(req, res, next) {
 
         // if this is not a message from aws then continue to next middleware
         if (req.method !== 'POST' || !req.headers['x-amz-sns-message-type']) return next();
@@ -51,7 +92,7 @@ function ScatherSns(configuration) {
                         var event;
                         try { event = JSON.parse(body.Message); } catch (e) {}
                         if (event && event.requestId) {
-                            debug('Received notification event ' + event.type + ':' + event.requestId + ' with data: ' + event.data, event);
+                            debug('Received notification event ' + event.type + ':' + event.topicArn + ' with data: ' + event.data, event);
                             EventInterface.emit(event.type, event.topicArn, event);
                         } else {
                             debug('Received unexpected event data.', event ? event : body.message);
@@ -83,7 +124,7 @@ function ScatherSns(configuration) {
      * @param {string} topicArn
      * @returns {Promise}
      */
-    factory.subscribe = function(topicArn) {
+    function subscribe(topicArn) {
 
         // validate the topic arn
         if (!rxTopicArn.test(topicArn)) throw Error('Cannot subscribe to an invalid AWS Topic Arn: ' + topicArn);
@@ -107,14 +148,14 @@ function ScatherSns(configuration) {
         });
 
         return deferred.promise;
-    };
+    }
 
     /**
      * Unsubscribe from an SNS Topic
      * @param {string} topicArn
      * @returns {Promise}
      */
-    factory.unsubscribe = function(topicArn) {
+    function unsubscribe(topicArn) {
 
         // if not subscribed then return now
         if (!subscriptions[topicArn]) {
@@ -131,66 +172,7 @@ function ScatherSns(configuration) {
                 resolve();
             });
         });
-    };
-
-
-
-    // overwrite the server listen function to know when to start making subscriptions
-    if (config.subscribe && config.topics.length > 0) {
-        const serverListen = config.server.listen;
-        config.server.listen = function () {
-            const args = Array.prototype.slice.call(arguments, 0);
-            const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
-            args.push(function () {
-                config.topics.forEach(factory.subscribe);
-                if (callback) callback.apply(config.server, arguments);
-            });
-            serverListen.apply(config.server, args);
-        };
     }
-
-    // add event listener that picks up request events and posts to sns topic
-    EventInterface.on('request', function(event) {
-
-        // if will be an endless loop due to the same topic and response arn then don't let it go on
-        if (event.topicArn === event.responseArn) {
-            if (publishedRequests[event.requestId] && similarObject(event, publishedRequests[event.requestId])) {
-                delete publishedRequests[event.requestId];
-                return;
-            } else {
-                publishedRequests[event.requestId] = event;
-                setTimeout(function() { delete publishedRequests[event.requestId]; }, 120000);
-            }
-        }
-
-        (subscriptions[event.responseArn] ? subscriptions[event.responseArn].promise : Promise.resolve())
-            .then(function() {
-                const params = {
-                    Message: JSON.stringify(event),
-                    TopicArn: event.topicArn
-                };
-                config.sns.publish(params, function(err) {
-                    if (err) {
-                        debug('Failed to publish event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
-                    } else {
-                        debug('Published event ' + event.requestId + ' to ' + event.topicArn, event);
-                    }
-                });
-            });
-    });
-
-    return factory;
-}
-
-function similarObject(a, b) {
-    const keys = Object.keys(a);
-    var i;
-    var key;
-    for (i = 0; i < keys.length; i++) {
-        key = keys[i];
-        if (a[key] !== b[key]) return false;
-    }
-    return true;
 }
 
 /**

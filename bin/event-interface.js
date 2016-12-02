@@ -15,6 +15,7 @@
  *    limitations under the License.
  **/
 'use strict';
+const schemas               = require('./schemas');
 
 const subscriptions = HandlerMap();
 
@@ -24,6 +25,7 @@ const subscriptions = HandlerMap();
  */
 exports.emit = function(event) {
     const args = evaluateArguments(arguments);
+    args.data = schemas.event.normalize(args.data);
     process.nextTick(function() {
         subscriptions.execute(args.keys, args.data);
     });

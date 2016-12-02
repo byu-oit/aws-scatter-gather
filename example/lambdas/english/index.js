@@ -15,14 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
+const Scather = require('aws-scatter-gather');
 
-module.exports = function(promise, callback) {
-    if (typeof callback === 'function') {
-        promise.then(
-            function(value) { callback(null, value); },
-            function(error) { callback(error, null); }
-        );
-    } else {
-        return promise;
-    }
-};
+exports.response = Scather.response(function english(data) {
+    return 'Hello, ' + data;
+});
+
+exports.handler = Scather.lambda(exports.response);

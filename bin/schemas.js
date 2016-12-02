@@ -17,8 +17,48 @@
 'use strict';
 const AWS                   = require('aws-sdk');
 const Schemata              = require('object-schemata');
+const uuid                  = require('./uuid');
+
+exports.event = Schemata({
+    data: {
+        required: true
+    },
+    error: {
+        defaultValue: '',
+        validate: function(v) { return typeof v === 'string'; }
+    },
+    requestId: {
+        defaultValue: uuid(),
+        validate: nonEmptyString
+    },
+    name: {
+        help: 'This must be a non-empty string.',
+        required: true,
+        validate: nonEmptyString
+    },
+    responseArn: {
+        help: 'This must be a non-empty string.',
+        required: true,
+        validate: nonEmptyString
+    },
+    topicArn: {
+        help: 'This must be a non-empty string.',
+        required: true,
+        validate: nonEmptyString
+    },
+    type: {
+        help: 'This must be a non-empty string.',
+        required: true,
+        validate: function(v) { return v === 'request' || v === 'response' }
+    }
+});
 
 exports.request = Schemata({
+    composer: {
+        defaultValue: function(value, callback) { callback(null, value) },
+        help: 'This must be a function.',
+        validate: function(v) { return typeof v === 'function' }
+    },
     expects: {
         defaultValue: [],
         help: 'This must be an array of strings.',
@@ -41,6 +81,11 @@ exports.request = Schemata({
         transform: function(v) { return Math.round(v); },
         validate: function(v, is) { return !is.nan(v) && parseInt(v) >= 0; }
     },
+    requires: {
+        defaultValue: [],
+        help: 'This must ben an array of strings.',
+        validate: function(v) { return isArrayOfStrings(v); }
+    },
     responseArn: {
         defaultValue: '',
         help: 'This must be a string.',
@@ -50,27 +95,6 @@ exports.request = Schemata({
         required: true,
         help: 'This must be a non-empty string.',
         validate: function(v, is) { return is.string(v) && v.length > 0; }
-    }
-});
-
-exports.response = Schemata({
-    development: {
-        defaultValue: false,
-        transform: function(v) { return !!v; }
-    },
-    eventBased: {
-        defaultValue: true,
-        transform: function(v) { return !!v; }
-    },
-    functionName: {
-        help: 'This must be a non-empty string.',
-        validate: function(v, is) { return is.string(v) && v.length > 0; },
-        required: true
-    },
-    handler: {
-        help: 'This must be a function.',
-        validate: function(v) { return typeof v === 'function'; },
-        required: true
     }
 });
 
@@ -109,6 +133,10 @@ exports.middleware = Schemata({
         }
     }
 });
+
+function nonEmptyString(v) {
+    return typeof v === 'string' && v.length > 0;
+}
 
 function isArrayOfStrings(v) {
     var i;

@@ -15,12 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
-const Scather   = require('../../index');
+const Scather = require('aws-scatter-gather');
 
-// create an aggregator function
-exports.greetings = Scather.aggregator({
-    expects: ['german', 'spanish'], //[ 'english', 'french', 'german', 'spanish' ],
-    responseArn: 'arn:aws:sns:us-west-2:026968893061:speirs-temp',
-    topicArn: 'arn:aws:sns:us-west-2:026968893061:speirs-temp',
-    maxWait: 5000
+exports.response = Scather.response(function spanish(data) {
+    return 'Hola, ' + data;
 });
+
+exports.handler = Scather.lambda(exports.response);

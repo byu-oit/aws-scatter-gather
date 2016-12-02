@@ -15,21 +15,10 @@
  *    limitations under the License.
  **/
 'use strict';
-const aggregators       = require('./server/aggregators');
-const Scather           = require('aws-scatter-gather');
+const Scather = require('aws-scatter-gather');
 
-const promises = [
-    Scather.orchestrate('./responders/german/index'),
-    Scather.orchestrate('./responders/spanish/index')
-];
+exports.response = Scather.response(function german(data) {
+    return 'Guten tag, ' + data;
+});
 
-Promise.all(promises)
-    .then(function() {
-        // execute the aggregator using a callback paradigm
-        aggregators.greetings('James', function(err, data) {
-
-            // end orchestration so that the process can shut down
-            Scather.orchestrate.end();
-            console.log(err, data);
-        });
-    });
+exports.handler = Scather.lambda(exports.response);
