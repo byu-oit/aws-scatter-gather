@@ -20,7 +20,7 @@ module.exports = function(handler) {
     if (typeof handler !== 'function' || !handler.name) {
         throw Error('Scather.response expected a named function as its first parameter. Received: ' + handler);
     }
-    const fn = function(data, callback) {
+    const fn = function Response(data, callback) {
 
         // call the handler using its expected paradigm
         const promise = handler.length > 1
@@ -40,9 +40,10 @@ module.exports = function(handler) {
         );
     };
 
-    Object.defineProperty(fn, 'name', {
+    Object.defineProperty(fn, 'functionName', {
         value: handler.name,
         writable: false
     });
+
     return fn;
 };
