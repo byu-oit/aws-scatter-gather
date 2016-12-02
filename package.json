@@ -4,7 +4,7 @@
   "description": "## Aggregators",
   "main": "index.js",
   "bin": {
-    "aws-scatter-gather": "aggregator.js"
+    "aws-scatter-gather": "index.js"
   },
   "directories": {
     "example": "example"
