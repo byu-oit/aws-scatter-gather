@@ -56,15 +56,15 @@ module.exports = function (configuration) {
             if (received.requestId !== event.requestId) return;
 
             // delete reference from the wait map
-            const index = missing.indexOf(received.functionName);
+            const index = missing.indexOf(received.name);
             if (index !== -1) missing.splice(index, 1);
 
             // store response
             if (!received.error) {
-                result[received.functionName] = received.data;
-                debug('Received response to request ' + received.requestId + ' from ' + received.functionName);
+                result[received.name] = received.data;
+                debug('Received response to request ' + received.requestId + ' from ' + received.name);
             } else {
-                debug('Received response to request ' + received.requestId + ' from ' + received.functionName + ' as an error: ' + received.error);
+                debug('Received response to request ' + received.requestId + ' from ' + received.name + ' as an error: ' + received.error);
             }
 
             // all expected responses received and min timeout passed, so resolve the deferred promise
