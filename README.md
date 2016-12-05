@@ -163,7 +163,7 @@ If the lambda function is invoked by an SNS Topic then the handler will be calle
 *Parameters*
 
 - *configuration* - This parameter defines how the middlware should operate. Options for the configuration are as follows:
-    - *endpoint* - **REQUIRED** The URL for the running server that needs to subscribe to SNS Topics.
+    - *endpoint* - **REQUIRED** The URL for the running server that needs to subscribe to SNS Topics. This must be a publicly accessible URL.
     - *passThrough* - A boolean indicating whether SNS Topic notifications should be passed to the server once processed. Defaults to `false`.
     - *server* - **REQUIRED** A reference to the server object that is incorperating this middleware.
     - *sns* - An AWS.SNS instance. Defaults to creating its own, but its own may not be configured property. You can configure it by setting SNS defaults or passing in your own AWS.SNS instance.
