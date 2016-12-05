@@ -154,7 +154,7 @@ If the lambda function is invoked by an SNS Topic then the handler will be calle
 
 *Parameters*
 
-- *handler* - A function that can be called with an AWS SNS Topic notification payload. If the notification is an [aggregator](#) request then the [response](#) handler will be called with just the relevant request data.
+- *handler* - A function that can be called with an AWS SNS Topic notification payload. If the notification is an [aggregator](#aggregator--configuration-object---function) request then the [response](#response--handler-function---function) handler will be called with just the relevant request data.
 
 *Returns* a function that is intended to be invoked by an SNS Topic event.
 
