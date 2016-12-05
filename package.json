@@ -1,7 +1,7 @@
 {
   "name": "aws-scatter-gather",
-  "version": "1.0.0",
-  "description": "## Aggregators",
+  "version": "2.0.0",
+  "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS Topics.",
   "main": "index.js",
   "bin": {
     "aws-scatter-gather": "index.js"
@@ -17,9 +17,8 @@
   },
   "devDependencies": {},
   "scripts": {
-
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "James Speirs <james.speirs@gmail.com>",
   "license": "Apache-2.0"
 }
