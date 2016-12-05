@@ -36,7 +36,7 @@ module.exports = function (configuration) {
         const deferred = defer();
         const event = schemas.event.normalize({
             data: data,
-            name: config.functionName,
+            name: config.name,
             responseArn: responseArn,
             topicArn: config.topicArn,
             type: 'request'
@@ -80,7 +80,7 @@ module.exports = function (configuration) {
 
         function unsubscribe() {
             EventInterface.off('response', event.responseArn, gatherer);
-            debug('Unsubscribed ' + config.functionName + ' from response:' + event.responseArn, event);
+            debug('Unsubscribed ' + config.name + ' from response:' + event.responseArn, event);
         }
 
 
@@ -107,7 +107,7 @@ module.exports = function (configuration) {
 
         // subscribe to responses until the gatherer completes
         EventInterface.on('response', event.responseArn, gatherer);
-        debug('Subscribed ' + config.functionName + ' to response:' + event.responseArn, event);
+        debug('Subscribed ' + config.name + ' to response:' + event.responseArn, event);
         deferred.promise.then(unsubscribe, unsubscribe);
 
         // fire the event

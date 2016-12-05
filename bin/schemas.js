@@ -63,11 +63,6 @@ exports.request = Schemata({
         help: 'This must be an array of strings.',
         validate: function(v) { return isArrayOfStrings(v); }
     },
-    functionName: {
-        defaultValue: '-',
-        help: 'This must be a non-empty string.',
-        validate: function(v, is) { return is.string(v) && v.length > 0; }
-    },
     maxWait: {
         defaultValue: 2500,
         help: 'This must be a non-negative number.',
@@ -80,10 +75,10 @@ exports.request = Schemata({
         transform: function(v) { return Math.round(v); },
         validate: function(v, is) { return !is.nan(v) && parseInt(v) >= 0; }
     },
-    requires: {
-        defaultValue: [],
-        help: 'This must ben an array of strings.',
-        validate: function(v) { return isArrayOfStrings(v); }
+    name: {
+        defaultValue: '-',
+        help: 'This must be a non-empty string.',
+        validate: function(v, is) { return is.string(v) && v.length > 0; }
     },
     responseArn: {
         defaultValue: '',
