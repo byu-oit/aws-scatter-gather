@@ -148,6 +148,8 @@ Produce an aggregator function that can be called to make a request and aggregat
 
 ### event
 
+Access the event interface. You probably don't need to do this unless you're building some sort of plugin. It's not really worth the effort to document this, yet.
+
 ### lambda ( handler: Function )
 
 If the lambda function is invoked by an SNS Topic then the handler will be called with the relevant data. Once the handler completes the lambda function will route the response back to the aggregator.
