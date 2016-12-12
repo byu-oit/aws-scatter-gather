@@ -1,16 +1,19 @@
 # aws-scatter-gather
 
-An NPM package that facilitates the scatter gather design pattern using AWS SNS Topics.
+An NPM package that facilitates the scatter gather design pattern using AWS SNS Topics. This model requires two components: aggregators that make the request, and responders that respond to the request.
 
 [Tell me more!]('#about')
 
 ## Examples
 
+Similar examples can be found in the `example` directory that is included as part of this package.
+
 ### Aggregators
 
 **Define an Aggregator**
 
-For this example, the code resides in `aggregators.js`.
+- File location: `example/aggegator/index.js`
+- To see configuration options, [look at the API](#aggregator--configuration-object---function).
 
 ```js
 const Scather = require('aws-scatter-gather');
@@ -37,8 +40,11 @@ exports.greetings = Scather.aggregator({
 
 Check that your aggregator is running as expected.
 
+- File location: `example/aggregator/test.js`
+- Using `mock` allows you to provide the response functions as the  second parameter.
+
 ```js
-const aggregators = require('./aggregators');
+const aggregators = require('./index');
 const english = require('../lambdas/english/index').english;
 
 // run mock aggregation - using a callback paradigm
@@ -56,6 +62,9 @@ aggregators.greetings.mock('James', [ english ])
 **Integration**
 
 Actually use SNS to communicate. You will need a server that is subscribed to the SNS Topic.
+
+- File location: `example/aggegator/server.js`
+- Uses connect middleware communicate to and from AWS SNS Topics.
 
 ```js
 const aggregators = require('./index.js');
@@ -90,43 +99,45 @@ app.listen(3000, function() {
 
 **Define a Lambda**
 
-File name: `lambda.js`
-
-Notice that there are examples for a callback paradigm and a promise paradigm. You only need one.
+- File location: `example/lambdas/english/index.js`
+- The example shows usage with a callback paradigm and a promise paradigm.
+- The `Scather.response` takes a named function. In this case `english`.
+- The `Scather.lambda` function does the work of receiving SNS Topic Notifications, calling its associated Scather responder function, and sending the response back to the aggregator.
 
 ```js
 const Scather = require('aws-scatter-gather');
 
-exports.handler = Scather.lambda(exports.english);
+// callback paradigm
+exports.response = Scather.response(function english(data, callback) {
+    callback(null, 'Hello, ' + data);
+});
 
 // promise paradigm
-exports.english = Scather.response(function english(data) {
+exports.response = Scather.response(function english(data) {
     return 'Hello, ' + data;
 });
 
-// callback paradigm
-exports.english = Scather.response(function english(data, callback) {
-    callback(null, 'Hello, ' + data);
-});
+exports.handler = Scather.lambda(exports.response);
 ```
 
 **Unit Testing**
 
-File name: `test.js`
+- File location: `example/lambdas/english/test.js`
+- Its difficult to debug code running on a lambda, so test locally when possible.
 
 ```js
 const lambda = require('./index');
+
+// callback paradigm
+lambda.response('James', function(err, data) {
+    console.log(data);
+});
 
 // promise paradigm
 lambda.response('James')
     .then(function(data) {
         console.log(data);
     });
-
-// callback paradigm
-lambda.response('James', function(err, data) {
-    console.log(data);
-});
 ```
 
 ## API
