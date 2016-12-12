@@ -90,7 +90,7 @@ app.listen(3000, function() {
 
 **Define a Lambda**
 
-For this example, the code resides in `lambda.js`.
+File name: `lambda.js`
 
 Notice that there are examples for a callback paradigm and a promise paradigm. You only need one.
 
@@ -100,31 +100,33 @@ const Scather = require('aws-scatter-gather');
 exports.handler = Scather.lambda(exports.english);
 
 // promise paradigm
-exports.english = Scather.response(function(data) {
+exports.english = Scather.response(function english(data) {
     return 'Hello, ' + data;
 });
 
 // callback paradigm
-exports.english = Scather.response(function(data, callback) {
+exports.english = Scather.response(function english(data, callback) {
     callback(null, 'Hello, ' + data);
 });
 ```
 
 **Unit Testing**
 
+File name: `test.js`
+
 ```js
 const lambda = require('./index');
-
-// callback paradigm
-lambda.response('James', function(err, data) {
-    console.log(data);
-});
 
 // promise paradigm
 lambda.response('James')
     .then(function(data) {
         console.log(data);
     });
+
+// callback paradigm
+lambda.response('James', function(err, data) {
+    console.log(data);
+});
 ```
 
 ## API
