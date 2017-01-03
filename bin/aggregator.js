@@ -20,6 +20,7 @@ const debug                 = require('./debug')('aggregator', 'green');
 const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
+const uuid                  = require('./uuid');
 
 /**
  * Create an aggregator function.
@@ -37,6 +38,7 @@ module.exports = function (configuration) {
         const event = schemas.event.normalize({
             data: data,
             name: config.name,
+            requestId: uuid(),
             responseArn: responseArn,
             topicArn: config.topicArn,
             type: 'request'

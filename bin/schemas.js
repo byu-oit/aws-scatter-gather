@@ -27,12 +27,12 @@ exports.event = Schemata({
         defaultValue: '',
         validate: function(v) { return typeof v === 'string'; }
     },
-    requestId: {
-        defaultValue: uuid(),
-        validate: nonEmptyString
-    },
     name: {
         help: 'This must be a non-empty string.',
+        required: true,
+        validate: nonEmptyString
+    },
+    requestId: {
         required: true,
         validate: nonEmptyString
     },
