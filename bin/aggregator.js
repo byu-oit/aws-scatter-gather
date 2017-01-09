@@ -15,6 +15,7 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS                   = require('aws-sdk');
 const copy                  = require('./copy');
 const debug                 = require('./debug')('aggregator', 'green');
 const defer                 = require('./defer');
@@ -29,6 +30,7 @@ const uuid                  = require('./uuid');
  */
 module.exports = function (configuration) {
     const config = copy(schemas.request.normalize(configuration || {}), true);
+    if (!config.sns) config.sns = new AWS.SNS();
     const composer = config.composer;
 
     // create the aggregator function that will be returned
@@ -113,8 +115,19 @@ module.exports = function (configuration) {
         deferred.promise.then(unsubscribe, unsubscribe);
 
         // fire the event
-        EventInterface.emit('request', event.topicArn, event);
-        debug('Emitted ' + event.requestId + ' to request:' + event.topicArn + ' with data: ' + data, event);
+        const params = {
+            Message: JSON.stringify(event),
+            TopicArn: event.topicArn
+        };
+        config.sns.publish(params, function (err) {
+            if (err) {
+                debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+            } else {
+                debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
+            }
+        });
+        //EventInterface.emit('request', event.topicArn, event);
+        //debug('Emitted ' + event.requestId + ' to request:' + event.topicArn + ' with data: ' + data, event);
 
         // after aggregation run the composer
         const completed = deferred.promise
