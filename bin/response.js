@@ -15,6 +15,7 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS                   = require('aws-sdk');
 const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 const debug                 = require('./debug')('response', 'blue');
