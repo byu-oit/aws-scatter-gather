@@ -10,15 +10,19 @@ Similar examples can be found in the `example` directory that is included as par
 
 ### Aggregators
 
+The aggregator has the role of initiating a request. It sends the request data out to the specified SNS Topic and it gathers responses back that are intended for it alone.
+
 **Define an Aggregator**
+
+When an aggregator is created, what you've done is create a function that can be called to aggregate send the request and gather responses.
 
 - File location: `example/aggegator/index.js`
 - To see configuration options, [look at the API](#aggregator--configuration-object---function).
 
 ```js
-const Scather = require('aws-scatter-gather');
+const AWS           = require('aws-sdk');
+const Scather       = require('aws-scatter-gather');
 
-// define an aggregator
 exports.greetings = Scather.aggregator({
     composer: function(responses) {
         const str = Object.keys(responses)
@@ -32,16 +36,17 @@ exports.greetings = Scather.aggregator({
     maxWait: 2500,
     minWait: 0,
     responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    sns: new AWS.SNS({ region: 'us-west-2' }),
     topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic'
 });
 ```
 
 **Unit Testing**
 
-Check that your aggregator is running as expected.
+You can test that your aggregator is running as expected without having to send anything across the network. This is helpful for debugging and development.
 
 - File location: `example/aggregator/test.js`
-- Using `mock` allows you to provide the response functions as the  second parameter.
+- Using `mock` allows you to provide the [response](#response) functions as the second parameter.
 
 ```js
 const aggregators = require('./index');
@@ -140,6 +145,49 @@ lambda.response('James')
     });
 ```
 
+### Response
+
+Response functions are subscribed to SNS events if you are running your own server. If you are using a lambda to capture SNS events then look to the [Lambdas](#lambdas) section for details.
+
+- File location: `example/server/server.js`
+
+```js
+const AWS = require('aws-sdk');
+const express = require('express');
+const Scather = require('aws-scatter-gather');
+
+// create the sns instance
+const sns = new AWS.SNS({ region: 'us-west-2' });
+
+// create an express app and add the scather sns middleware
+const app = express();
+app.use(Scather.middleware({
+    endpoint: 'http://url-to-this-server.com',
+    server: app,
+    sns: sns,
+    topics: ['arn:aws:sns:us-west-2:064824991063:ResponseTopic']
+}));
+
+// using a handler function as input and using a callback paradigm
+Scather.response(function English(data, callback) {
+    callback(null, 'Hello, ' + data);
+});
+
+// using a configuration as input and using a promise paradigm
+Scather.response({
+    name: 'Chinese',
+    sns: sns,
+    handler: function (data) {      // promise paradigm because no second parameter is specified
+        return 'Ni hao, ' + data;
+    }
+});
+
+// start the server listening on port 3001
+app.listen(3001, function() {
+    console.log('Server listening on port 3001');
+});
+```
+
 ## API
 
 ### aggregator ( configuration: Object ) : Function
@@ -185,13 +233,19 @@ If the lambda function is invoked by an SNS Topic then the handler will be calle
     - *subscribe* - A boolean indicating whether an SNS Topic subscription should automatically be made for any *topics* listed. There is no harm in attempting to resubscribe to a topic. Defaults to `true`.
     - *topics* - An array of Topic ARN strings that the middleware will handle requests for. Defaults to `[]`.
 
-### response ( handler: Function ) : Function
+### response ( handler: Function | Object ) : Function
 
 Produce a response function.
 
 *Parameters*
 
-- *handler* - A function to call with request data. This function will be called with its defined signature (either using callbacks or promises). Note that when the handler is invoked, the invocation signature does not need to match the calling signature. The calling signature can use promises or callbacks, independent of the handler signature.
+- *handler* - A function to call with request data or an object containing the handler. The handler function will be called with its defined signature (either using callbacks or promises). Note that when the handler is invoked, the invocation signature does not need to match the calling signature. The calling signature can use promises or callbacks, independent of the handler signature.
+
+    If an object is used it takes these parameters:
+
+        - *name* - The name of the function.
+        - *sns* - The SNS instance to use. This cannot be defined if passing in a function instead of an object for the response parameter.
+        - *handler* - The handler function to call.
 
 *Returns* a function that can take one or two arguments. The first arguments is the data to have the response process. The second parameter is an optional callback function. If the callback is omitted then a Promise will be returned.
 

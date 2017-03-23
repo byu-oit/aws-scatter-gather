@@ -33,20 +33,12 @@ function middleware(configuration) {
     if (!config.sns) config.sns = new AWS.SNS();
 
     // for any requests send them to an sns topic
-    if (!hasRun) {
+    /*if (!hasRun) {
         hasRun = true;
-        EventInterface.on('request', function(event) {
 
-            // handle echoes
-            if (event.topicArn === event.responseArn) {
-                if (echoes[event.requestId]) {
-                    clearTimeout(echoes[event.requestId]);
-                    delete echoes[event.requestId];
-                    debug('Echo cancelled for ' + event.requestId);
-                    return;
-                }
-                echoes[event.requestId] = setTimeout(function() { delete echoes[event.requestId]; }, 300000);
-            }
+        // listen for internal requests and send them out
+        EventInterface.on('request', function(event) {
+            if (!event.internal) return;
 
             const params = {
                 Message: JSON.stringify(event),
@@ -60,7 +52,24 @@ function middleware(configuration) {
                 }
             });
         });
-    }
+
+        // listen for internal responses and send them out
+        EventInterface.on('request', function(event) {
+            if (!event.internal) return;
+
+            const params = {
+                Message: JSON.stringify(event),
+                TopicArn: event.topicArn
+            };
+            config.sns.publish(params, function (err) {
+                if (err) {
+                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                } else {
+                    debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
+                }
+            });
+        });
+    }*/
 
     // overwrite the server listen function to know when to start making subscriptions
     if (config.subscribe && config.topics.length > 0) {
