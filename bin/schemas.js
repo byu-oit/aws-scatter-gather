@@ -121,7 +121,7 @@ exports.middleware = Schemata({
         validate: function(v, is) {
             if (!Array.isArray(v)) return false;
             for (var i = 0; i < v.length; i++) {
-                if (!v[0] || !is.string(v[0])) return false;
+                if (!v[i] || !is.string(v[i])) return false;
             }
             return true;
         }
