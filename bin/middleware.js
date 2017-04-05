@@ -107,6 +107,8 @@ function middleware(configuration) {
                         if (event && event.requestId) {
                             debug('Received notification event ' + event.type + ':' + event.topicArn + ' with data: ' + event.data, event);
                             EventInterface.emit(event.type, event.topicArn, event);
+                        } else if (event && event.circuitBreakerFault) {
+                            //TODO: handle cb events
                         } else {
                             debug('Received unexpected event data.', event ? event : body.message);
                         }

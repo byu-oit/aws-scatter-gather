@@ -115,6 +115,10 @@ exports.middleware = Schemata({
         defaultValue: true,
         transform: function(v) { return !!v }
     },
+    circuitbreaker: {
+        help: 'Expected a Circuitbreaker instance.',
+        validate: function(v) { return v && v.state }
+    },
     topics: {
         help: 'This must be an array of non-empty strings.',
         defaultValue: [],
@@ -126,6 +130,29 @@ exports.middleware = Schemata({
             return true;
         }
     }
+});
+
+exports.circuitbreaker = Schemata({
+    timeout: {
+        help: 'Expected a positive integer',
+        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        defaultValue: 1000 * 60 * 5
+    },
+    errorThreshold: {
+        help: 'Expected a fraction between 0 and 1 (not inclusive)',
+        validate: function(v) { return !Number.isNaN(v) && 0 < v && v < 1; },
+        defaultValue: 0.1
+    },
+    lowLoadThreshold: {
+        help: 'This must be a positive integer',
+        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        defaultValue: 300
+    },
+    windowSize: {
+        help: 'This must be a positive integer',
+        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        defaultValue: 1000 * 60 * 30
+    },
 });
 
 function nonEmptyString(v) {
