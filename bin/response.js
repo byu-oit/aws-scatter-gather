@@ -50,7 +50,7 @@ module.exports = function(configuration) {
     };
 
     Object.defineProperty(fn, 'name', {
-        value: handler.name,
+        value: responder.name,
         writable: false
     });
 
