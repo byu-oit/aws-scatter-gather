@@ -57,7 +57,7 @@ function middleware(configuration) {
             };
             config.sns.publish(params, function (err) {
                 if (err) {
-                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, JSON.stringify(event));
                 } else {
                     debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
                 }

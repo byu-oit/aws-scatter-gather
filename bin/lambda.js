@@ -18,11 +18,16 @@
 const AWS                   = require('aws-sdk');
 const debug                 = require('./debug')('lambda', 'magenta');
 const schemas               = require('./schemas');
+const cb                    = require('./circuitbreaker');
 
 module.exports = lambda;
 
-function lambda(handler) {
-    if (!handler.name) throw Error('The handler function must be a named function.');
+function lambda(configuration) {
+    const config = schemas.response.normalize(configuration || {});
+    const responder = config.responder;
+    if (!responder.name) throw Error('The responder function must be a named function.');
+    const bypass = config.bypass || responder;
+    if (!bypass.name) throw Error('The bypass function must be a named function.');
     const sns = new AWS.SNS();
     debug('Defined lambda handler: ' + handler.name);
 
@@ -36,6 +41,8 @@ function lambda(handler) {
                     const e = decode(record.Sns.Message);
                     if (e && e.requestId && e.type === 'request') {
                         debug('Received sns event ' + e.requestId + ' with data: ' + e.data, e);
+
+                        const handler = (e.CBState === cb.OPEN) ? bypass : responder;
 
                         // call the handler using the paradigm it expects
                         var promise = handler.length >= 3

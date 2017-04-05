@@ -92,7 +92,7 @@ exports.request = Schemata({
     }
 });
 
-exports.response = Schemata({
+exports.lambda = Schemata({
     responder: {
         required: true,
         help: 'This must be a named function.',
