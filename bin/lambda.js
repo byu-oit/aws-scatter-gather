@@ -23,7 +23,7 @@ const cb                    = require('./circuitbreaker');
 module.exports = lambda;
 
 function lambda(configuration) {
-    const config = schemas.response.normalize(configuration || {});
+    const config = schemas.lambda.normalize(configuration || {});
     const responder = config.responder;
     if (!responder.name) throw Error('The responder function must be a named function.');
     const bypass = config.bypass || responder;
