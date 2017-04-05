@@ -125,7 +125,8 @@ exports.circuitbreaker = function (configuration) {
 exports.sendFaultAlert = function(sns, topic) {
     const params = {
         Message: JSON.stringify({
-            eventType: 'fault',
+            circuitbreakerEvent: true,
+            type: 'fault',
             message: 'Circuitbreaker fault recorded'
         }),
         TargetArn: topic
@@ -143,7 +144,8 @@ exports.sendFaultAlert = function(sns, topic) {
 exports.sendSuccessAlert = function(sns, topic) {
     const params = {
         Message: JSON.stringify({
-            eventType: 'success',
+            circuitbreakerEvent: true,
+            type: 'success',
             message: 'Circuitbreaker success recorded'
         }),
         TargetArn: topic

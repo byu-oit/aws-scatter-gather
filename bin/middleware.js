@@ -107,8 +107,15 @@ function middleware(configuration) {
                         if (event && event.requestId) {
                             debug('Received notification event ' + event.type + ':' + event.topicArn + ' with data: ' + event.data, event);
                             EventInterface.emit(event.type, event.topicArn, event);
-                        } else if (event && event.circuitBreakerFault) {
-                            //TODO: handle cb events
+                        } else if (event && event.circuitbreakerEvent) {
+                            debug('Received circuitbreaker event ' + event.type, event);
+                            if (config.circuitbreaker) {
+                                if (event.type === 'success') {
+                                    config.circuitbreaker.success();
+                                } else if (event.type === 'fault') {
+                                    config.circuitbreaker.fault();
+                                }
+                            }
                         } else {
                             debug('Received unexpected event data.', event ? event : body.message);
                         }
