@@ -48,13 +48,13 @@ function middleware(configuration) {
                 echoes[event.requestId] = setTimeout(function() { delete echoes[event.requestId]; }, 300000);
             }
 
+            if(config.circuitbreaker) {
+                event['CBState'] = config.circuitbreaker.state();
+            }
             const params = {
                 Message: JSON.stringify(event),
                 TopicArn: event.topicArn
             };
-            if(config.circuitbreaker) {
-                params['CBState'] = config.circuitbreaker.state();
-            }
             config.sns.publish(params, function (err) {
                 if (err) {
                     debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
