@@ -92,6 +92,18 @@ exports.request = Schemata({
     }
 });
 
+exports.response = Schemata({
+    responder: {
+        required: true,
+        help: 'This must be a named function.',
+        validate: function(v, is) { return is.fn(v) && !!v.name; }
+    },
+    bypass: {
+        help: 'This must be a named function.',
+        validate: function(v, is) { return is.fn(v) && !!v.name; }
+    }
+});
+
 exports.middleware = Schemata({
     endpoint: {
         help: 'This must be a valid URL.',
@@ -135,22 +147,22 @@ exports.middleware = Schemata({
 exports.circuitbreaker = Schemata({
     timeout: {
         help: 'Expected a positive integer',
-        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
         defaultValue: 1000 * 60 * 5
     },
     errorThreshold: {
         help: 'Expected a fraction between 0 and 1 (not inclusive)',
-        validate: function(v) { return !Number.isNaN(v) && 0 < v && v < 1; },
+        validate: function(v, is) { return is.decimal(v) && is.gt(v,0) && is.lt(v,1); },
         defaultValue: 0.1
     },
     lowLoadThreshold: {
         help: 'This must be a positive integer',
-        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
         defaultValue: 300
     },
     windowSize: {
         help: 'This must be a positive integer',
-        validate: function(v) { return Number.isInteger(v) && v > 0; },
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
         defaultValue: 1000 * 60 * 30
     },
 });

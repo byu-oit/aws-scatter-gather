@@ -52,6 +52,9 @@ function middleware(configuration) {
                 Message: JSON.stringify(event),
                 TopicArn: event.topicArn
             };
+            if(config.circuitbreaker) {
+                params['CBState'] = config.circuitbreaker.state();
+            }
             config.sns.publish(params, function (err) {
                 if (err) {
                     debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);

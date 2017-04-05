@@ -16,11 +16,20 @@
  **/
 'use strict';
 
-module.exports = function(handler) {
-    if (typeof handler !== 'function' || !handler.name) {
-        throw Error('Scather.response expected a named function as its first parameter. Received: ' + handler);
+const schemas               = require('./schemas');
+const cb                    = require('./circuitbreaker');
+
+module.exports = function(configuration) {
+    const config = schemas.response.normalize(configuration || {});
+    const responder = config.responder;
+    if (typeof responder !== 'function' || !responder.name) {
+        throw Error('Scather.response expected a named function as its first parameter. Received: ' + responder);
     }
+    const bypass = config.bypass || responder;
+
     const fn = function (data, callback) {
+
+        const handler = (data.parameters.CBState===cb.OPEN) ? bypass : responder;
 
         // call the handler using its expected paradigm
         const promise = handler.length > 1
