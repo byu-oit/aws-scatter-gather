@@ -29,7 +29,7 @@ function lambda(configuration) {
     const bypass = config.bypass || responder;
     if (!bypass.name) throw Error('The bypass function must be a named function.');
     const sns = new AWS.SNS();
-    debug('Defined lambda handler: ' + handler.name);
+    debug('Defined lambda handler: ' + responder.name + '/' + bypass.name);
 
     return function(event, context, callback) {
         const promises = [];
