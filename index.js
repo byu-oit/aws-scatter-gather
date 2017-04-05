@@ -31,5 +31,6 @@ module.exports = {
     event:          require('./bin/event-interface'),
     lambda:         require('./bin/lambda'),
     middleware:     require('./bin/middleware'),
-    response:       require('./bin/response')
+    response:       require('./bin/response'),
+    circuitbreaker: require('./bin/circuitbreaker')
 };

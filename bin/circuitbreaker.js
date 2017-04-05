@@ -87,7 +87,7 @@ function Circuitbreaker() {
  * @param {object} [configuration={}]
  * @returns {Function}
  */
-exports.circuitbreaker = function (configuration) {
+exports.config = function (configuration) {
     const config = copy(schemas.circuitbreaker.normalize(configuration || {}), true);
 
     const request = function() {
