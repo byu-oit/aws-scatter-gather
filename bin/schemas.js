@@ -49,6 +49,16 @@ exports.event = Schemata({
         help: 'This must be a non-empty string.',
         required: true,
         validate: function(v) { return v === 'request' || v === 'response' }
+    },
+    circuitbreakerState: {
+        help: 'This must be a valid circuitbreaker state.',
+        validate: function(v) { return v === 'open' || v === 'closed' || v === 'indeterminate' }
+    },
+    circuitbreakerFault: {
+        defaultValue: false
+    },
+    circuitbreakerSuccess: {
+        defaultValue: false
     }
 });
 
@@ -92,11 +102,35 @@ exports.request = Schemata({
         required: true,
         help: 'This must be a non-empty string.',
         validate: function(v, is) { return is.string(v) && v.length > 0; }
+    },
+    circuitbreaker: {
+        help: 'Expected a Circuitbreaker instance.',
+        validate: function(v) { return v && v.state }
     }
 });
 
-exports.lambda = Schemata({
-    responder: {
+exports.response = Schemata({
+    name:{
+        help: 'This must be a non-empty string.',
+        validate: nonEmptyString,
+        required: true
+    },
+    sns: {
+        help: 'Expected an AWS sns instance.',
+        validate:function(v) { return v && v.config.constructor.name === 'Config' && v.endpoint.constructor.name === 'Endpoint' }
+    },
+    topics: {
+        help: 'This must be an array of non-empty strings.',
+        defaultValue: [],
+        validate: function(v, is) {
+            if (!Array.isArray(v)) return false;
+            for (var i = 0; i < v.length; i++) {
+                if (!v[i] || !is.string(v[i])) return false;
+            }
+            return true;
+        }
+    },
+    handler: {
         required: true,
         help: 'This must be a named function.',
         validate: function(v, is) { return is.fn(v) && !!v.name; }
@@ -129,10 +163,6 @@ exports.middleware = Schemata({
     subscribe: {
         defaultValue: true,
         transform: function(v) { return !!v }
-    },
-    circuitbreaker: {
-        help: 'Expected a Circuitbreaker instance.',
-        validate: function(v) { return v && v.state }
     },
     topics: {
         help: 'This must be an array of non-empty strings.',

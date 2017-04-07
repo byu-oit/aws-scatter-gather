@@ -22,6 +22,7 @@ const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 const uuid                  = require('./uuid');
+const CB                    = require('./circuitbreaker');
 
 /**
  * Create an aggregator function.
@@ -37,14 +38,14 @@ module.exports = function (configuration) {
     const aggregator = function(data, callback) {
         const responseArn = config.responseArn || config.topicArn;
         const deferred = defer();
-        const event = schemas.event.normalize({
+        const event = schemas.event.normalize(Object.assign({
             data: data,
             name: config.name,
             requestId: uuid(),
             responseArn: responseArn,
             topicArn: config.topicArn,
             type: 'request'
-        });
+        }, config.circuitbreaker ? {circuitbreakerState: config.circuitbreaker.state()} : {}));
         const missing = config.expects.slice(0);
         const result = {};
         var minTimeoutReached = false;
@@ -67,6 +68,12 @@ module.exports = function (configuration) {
             if (!received.error) {
                 result[received.name] = received.data;
                 debug('Received response to request ' + received.requestId + ' from ' + received.name);
+                if (config.circuitbreaker && received.circuitbreakerSuccess) {
+                  config.circuitbreaker.success();
+                }
+            } else if (config.circuitbreaker && received.circuitbreakerFault) {
+                debug('Received response to request ' + received.requestId + ' from ' + received.name + ' which triggered a circuitbreaker fault with the error: ' + received.error);
+                config.circuitbreaker.fault();
             } else {
                 debug('Received response to request ' + received.requestId + ' from ' + received.name + ' as an error: ' + received.error);
             }
