@@ -17,38 +17,42 @@
 'use strict';
 const Scather = require('aws-scatter-gather');
 const request = require('request');
-const AWS = require('aws-sdk');
-const SNS = new AWS.SNS({ region: 'us-west-2', apiVersion: '2010-12-01' });
 
 const snsArn = 'arn:aws:sns:us-west-2:064824991063:ResponseTopic';
-
-exports.response = Scather.response(function service(data) {
+function service(data) {
     const url = `http://echo.jsontest.com/data/${data}`;
     return new Promise(function(resolve, reject) {
         request(url, function(error, response, body) {
             //Simulate an intermittently faulty connection
             if(Math.random() < 0.2) {
-                Scather.circuitbreaker.sendFaultAlert(SNS, snsArn);
-            } else {
-                Scather.circuitbreaker.sendSuccessAlert(SNS, snsArn);
+                return reject({
+                    circuitbreakerFault: true,
+                    message: 'Service is down!'
+                });
             }
             if(error) {
                 return reject(error);
             }
             if(response.statusCode !== 200) {
                 return reject({
-                  statusCode: response.statusCode
+                    statusCode: response.statusCode
                 });
             }
             return resolve(body);
         });
     });
-});
+}
 
-exports.bypass = Scather.response(function bypass(data) {
+function bypass(data) {
     return JSON.stringify({
-      data: 'Bypassed by circuit breaker'
+        data: 'Bypassed by circuit breaker'
     });
+}
+
+exports.response = Scather.response({
+    name: 'service',
+    handler: service,
+    bypass: bypass
 });
 
-exports.handler = Scather.lambda({responder: exports.response, bypass: exports.bypass});
+exports.handler = Scather.lambda(exports.response);
