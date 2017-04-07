@@ -40,9 +40,25 @@ app.use(Scather.middleware({
     endpoint: 'http://url-to-this-server.com',
     server: app,
     sns: new AWS.SNS({ region: 'us-west-2' }),
-    topics: ['arn:aws:sns:us-west-2:064824991063:ResponseTopic'],
-    circuitbreaker: circuitbreaker
+    topics: ['arn:aws:sns:us-west-2:064824991063:ResponseTopic']
 }));
+
+const echoes = Scather.aggregator({
+    composer: function(responses) {
+        const str = Object.keys(responses)
+            .map(function(source) {
+                return source + ': ' + responses[source];
+            })
+            .join('\n\t');
+        return 'Echo from multiple sources: \n\t' + str;
+    },
+    expects: ['service'],
+    maxWait: 2500,
+    minWait: 0,
+    responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic',
+    circuitbreaker: circuitbreaker
+});
 
 // start the server listening on port 3000
 app.listen(3000, function() {
