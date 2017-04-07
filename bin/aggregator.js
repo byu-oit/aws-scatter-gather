@@ -38,14 +38,15 @@ module.exports = function (configuration) {
     const aggregator = function(data, callback) {
         const responseArn = config.responseArn || config.topicArn;
         const deferred = defer();
-        const event = schemas.event.normalize(Object.assign({
+        const event = schemas.event.normalize({
             data: data,
             name: config.name,
             requestId: uuid(),
             responseArn: responseArn,
             topicArn: config.topicArn,
-            type: 'request'
-        }, config.circuitbreaker ? {circuitbreakerState: config.circuitbreaker.state()} : {}));
+            type: 'request',
+            circuitbreakerState: (config.circuitbreaker) ? config.circuitbreaker.state() : CB.CLOSED
+        });
         const missing = config.expects.slice(0);
         const result = {};
         var minTimeoutReached = false;

@@ -82,13 +82,14 @@ module.exports = function(handler) {
 
             fn(e.data, circuitbreakerState)
                 .then(function(data) {
-                    const event = schemas.event.normalize(Object.assign({
+                    const event = schemas.event.normalize({
                         data: data,
                         requestId: e.requestId,
                         name: config.name,
                         topicArn: e.responseArn,
-                        type: 'response'
-                    }, (e.circuitbreakerState) ? {circuitbreakerSuccess: true} : {}));
+                        type: 'response',
+                        circuitbreakerSuccess: (e.circuitbreakerState) ? true : false
+                    });
 
                     const params = {
                         Message: JSON.stringify(event),
@@ -106,13 +107,14 @@ module.exports = function(handler) {
                 })
                 .catch(function(err) {
                     debug(err.stack, err); 
-                    const event = schemas.event.normalize(Object.assign({
+                    const event = schemas.event.normalize({
                         error: err,
                         requestId: e.requestId,
                         name: config.name,
                         topicArn: e.responseArn,
-                        type: 'response'
-                    }, (e.circuitbreakerState) ? {circuitbreakerFault: true} : {}));
+                        type: 'response',
+                        circuitbreakerFault:(e.circuitbreakerState) ? true : false
+                    });
 
                     const params = {
                         Message: JSON.stringify(event),

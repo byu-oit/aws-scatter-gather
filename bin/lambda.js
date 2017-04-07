@@ -22,7 +22,7 @@ const CB                    = require('./circuitbreaker');
 
 module.exports = lambda;
 
-function lambda(configuration) {
+function lambda(handler) {
 
     // determine the configuration
     const config = handler && typeof handler === 'object' ? handler : {};
@@ -57,19 +57,20 @@ function lambda(configuration) {
                                     resolve(data);
                                 });
                             })
-                            : Promise.resolve(config.handler(e.data));
+                            : Promise.resolve(config.handler(e.data, circuitbreakerState));
 
                         // if the incoming event has a response arn then send a response via sns to that arn
                         if (e.responseArn) {
                             promise = promise
                                 .then(function(data) {
-                                    const event = schemas.event.normalize(Object.assign({
+                                    const event = schemas.event.normalize({
                                         data: data,
                                         requestId: e.requestId,
                                         name: config.name,
                                         topicArn: e.responseArn,
-                                        type: 'response'
-                                    }, (e.circuitbreakerState) ? {circuitbreakerSuccess: true} : {}));
+                                        type: 'response',
+                                        circuitbreakerSuccess: (e.circuitbreakerState) ? true : false
+                                    });
 
                                     const params = {
                                         Message: JSON.stringify(event),
@@ -87,13 +88,14 @@ function lambda(configuration) {
                                 })
                                 .catch(function(err) {
                                     debug(err.stack, err); 
-                                    const event = schemas.event.normalize(Object.assign({
+                                    const event = schemas.event.normalize({
                                         error: err,
                                         requestId: e.requestId,
                                         name: config.name,
                                         topicArn: e.responseArn,
-                                        type: 'response'
-                                    }, (e.circuitbreakerState && err.circuitbreakerFault) ? {circuitbreakerFault: true} : {}));
+                                        type: 'response',
+                                        circuitbreakerFault: (e.circuitbreakerState) ? true : false
+                                    });
 
                                     const params = {
                                         Message: JSON.stringify(event),
