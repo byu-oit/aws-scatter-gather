@@ -19,12 +19,12 @@
 const lambda = require('./index');
 
 // callback paradigm
-lambda.response('EchoThisBack', function(err, data) {
+lambda.response('EchoThisBack', 'closed', function(err, data) {
     console.log(data);
 });
 
 // promise paradigm
-lambda.response('EchoThisBack')
+lambda.response('EchoThisBack', 'closed')
     .then(function(data) {
         console.log(data);
     });

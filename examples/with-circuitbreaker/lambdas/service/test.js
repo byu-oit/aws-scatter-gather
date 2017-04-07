@@ -18,13 +18,35 @@
 
 const lambda = require('./index');
 
+// call normally
+
 // callback paradigm
-lambda.response('EchoThisBack', function(err, data) {
-    console.log(data);
+lambda.response('EchoThisBack', 'closed', function(err, data) {
+    if(err) {
+        console.error('closed cb', err);
+        return;
+    }
+    console.log('closed cb', data);
 });
 
 // promise paradigm
-lambda.response('EchoThisBack')
+lambda.response('EchoThisBack', 'closed')
     .then(function(data) {
-        console.log(data);
+        console.log('closed promise', data);
+    })
+    .catch(function(err) {
+        console.error('closed promise', err);
+    });
+
+// expect bypass
+
+// callback paradigm
+lambda.response('EchoThisBack', 'open', function(err, data) {
+    console.log('open cb', data);
+});
+
+// promise paradigm
+lambda.response('EchoThisBack', 'open')
+    .then(function(data) {
+        console.log('open promise', data);
     });
