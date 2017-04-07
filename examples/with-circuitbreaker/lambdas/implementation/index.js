@@ -17,10 +17,12 @@
 'use strict';
 const Scather = require('aws-scatter-gather');
 
-exports.response = Scather.response(function implementation(data) {
+function implementation(data) {
     return JSON.stringify({
-      data: data
+        data: data
     });
-});
+}
 
-exports.handler = Scather.lambda({responder: exports.response});
+exports.response = Scather.response(implementation);
+
+exports.handler = Scather.lambda(exports.response);
