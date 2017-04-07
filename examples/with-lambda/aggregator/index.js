@@ -15,7 +15,8 @@
  *    limitations under the License.
  **/
 'use strict';
-const Scather = require('aws-scatter-gather');
+const AWS           = require('aws-sdk');
+const Scather       = require('aws-scatter-gather');
 
 exports.greetings = Scather.aggregator({
     composer: function(responses) {
@@ -30,5 +31,6 @@ exports.greetings = Scather.aggregator({
     maxWait: 2500,
     minWait: 0,
     responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    sns: new AWS.SNS({ region: 'us-west-2' }),
     topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic'
 });

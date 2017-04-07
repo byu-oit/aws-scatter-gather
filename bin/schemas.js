@@ -85,6 +85,9 @@ exports.request = Schemata({
         help: 'This must be a string.',
         validate: function(v, is) { return is.string(v); }
     },
+    sns: {
+        help: 'This must be an sns instance.'
+    },
     topicArn: {
         required: true,
         help: 'This must be a non-empty string.',
