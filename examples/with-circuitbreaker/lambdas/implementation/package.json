@@ -6,7 +6,7 @@
   "scripts": {},
   "author": "",
   "dependencies": {
-    "aws-scatter-gather": "byu-oit-appdev/aws-scatter-gather#ajr56-builtin-circuit-breaker"
+    "aws-scatter-gather": "^3.0.0"
   },
   "license": "Apache-2.0"
 }
