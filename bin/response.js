@@ -21,7 +21,7 @@ const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 const debug                 = require('./debug')('response', 'blue');
 
-function createConfig(parm) {
+function configure(parm) {
     if(typeof parm === 'function') {
         return schemas.response.normalize({
             handler: parm,
@@ -34,7 +34,7 @@ function createConfig(parm) {
 
 module.exports = function(handler) {
     // determine the configuration
-    const config = createConfig(handler);
+    const config = configure(handler);
     if (!Array.isArray(config.topics)) config.topics = null;    // null means any topic
 
     // validate input

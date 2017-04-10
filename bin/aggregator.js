@@ -24,14 +24,21 @@ const schemas               = require('./schemas');
 const uuid                  = require('./uuid');
 const CB                    = require('./circuitbreaker');
 
+const configure = function(configuration) {
+    const config = copy(schemas.request.normalize(configuration || {}), true);
+    if (!config.sns) {
+      return copy(Object.assign({}, config, {sns: new AWS.SNS()}), true);
+    }
+    return config;
+};
+
 /**
  * Create an aggregator function.
  * @param {object} [configuration={}]
  * @returns {Function}
  */
 module.exports = function (configuration) {
-    const config = copy(schemas.request.normalize(configuration || {}), true);
-    if (!config.sns) config.sns = new AWS.SNS();
+    var config = configure(configuration);
     const composer = config.composer;
 
     // create the aggregator function that will be returned
