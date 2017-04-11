@@ -18,6 +18,7 @@
 const AWS                   = require('aws-sdk');
 const debug                 = require('./debug')('lambda', 'magenta');
 const schemas               = require('./schemas');
+const CB                    = require('./circuitbreaker');
 
 module.exports = lambda;
 
@@ -46,18 +47,17 @@ function lambda(handler) {
                     if (e && e.requestId && e.type === 'request') {
                         debug('Received sns event ' + e.requestId + ' with data: ' + e.data, e);
 
+                        const circuitbreakerState = e.circuitbreakerState || CB.CLOSED;
+
                         // call the handler using the paradigm it expects
                         var promise = config.handler.length >= 3
                             ? new Promise(function(resolve, reject) {
-                                config.handler(e.data, function(err, data) {
+                                config.handler(e.data, circuitbreakerState, function(err, data) {
                                     if (err) return reject(err);
                                     resolve(data);
                                 });
                             })
-                            : Promise.resolve(config.handler(e.data));
-
-                        // log errors
-                        promise.catch(function(err) { debug(err.stack, err); });
+                            : Promise.resolve(config.handler(e.data, circuitbreakerState));
 
                         // if the incoming event has a response arn then send a response via sns to that arn
                         if (e.responseArn) {
@@ -68,7 +68,8 @@ function lambda(handler) {
                                         requestId: e.requestId,
                                         name: config.name,
                                         topicArn: e.responseArn,
-                                        type: 'response'
+                                        type: 'response',
+                                        circuitbreakerSuccess: (e.circuitbreakerState) ? true : false
                                     });
 
                                     const params = {
@@ -77,14 +78,42 @@ function lambda(handler) {
                                     };
                                     config.sns.publish(params, function (err) {
                                         if (err) {
-                                            debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                                            debug('Failed to publish response event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
                                         } else {
-                                            debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
+                                            debug('Published response event ' + event.requestId + ' to ' + event.topicArn, event);
+                                        }
+                                    });
+                                    
+                                    return event;
+                                })
+                                .catch(function(err) {
+                                    debug(err.stack, err); 
+                                    const event = schemas.event.normalize({
+                                        error: err,
+                                        requestId: e.requestId,
+                                        name: config.name,
+                                        topicArn: e.responseArn,
+                                        type: 'response',
+                                        circuitbreakerFault: (e.circuitbreakerState) ? true : false
+                                    });
+
+                                    const params = {
+                                        Message: JSON.stringify(event),
+                                        TopicArn: event.topicArn
+                                    };
+                                    config.sns.publish(params, function (err) {
+                                        if (err) {
+                                            debug('Failed to publish response event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                                        } else {
+                                            debug('Published response event ' + event.requestId + ' to ' + event.topicArn, event);
                                         }
                                     });
                                     
                                     return event;
                                 });
+                        } else {
+                            // log errors
+                            promise.catch(function(err) { debug(err.stack, err); });
                         }
 
                         promises.push(promise);

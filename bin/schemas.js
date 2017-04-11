@@ -49,6 +49,16 @@ exports.event = Schemata({
         help: 'This must be a non-empty string.',
         required: true,
         validate: function(v) { return v === 'request' || v === 'response' }
+    },
+    circuitbreakerState: {
+        help: 'This must be a valid circuitbreaker state.',
+        validate: function(v) { return v === 'open' || v === 'closed' || v === 'indeterminate' }
+    },
+    circuitbreakerFault: {
+        defaultValue: false
+    },
+    circuitbreakerSuccess: {
+        defaultValue: false
     }
 });
 
@@ -92,6 +102,42 @@ exports.request = Schemata({
         required: true,
         help: 'This must be a non-empty string.',
         validate: function(v, is) { return is.string(v) && v.length > 0; }
+    },
+    circuitbreaker: {
+        help: 'Expected a Circuitbreaker instance.',
+        validate: function(v) { return v && v.state }
+    }
+});
+
+exports.response = Schemata({
+    name:{
+        help: 'This must be a non-empty string.',
+        validate: nonEmptyString,
+        required: true
+    },
+    sns: {
+        help: 'Expected an AWS sns instance.',
+        validate:function(v) { return v && v.config.constructor.name === 'Config' && v.endpoint.constructor.name === 'Endpoint' }
+    },
+    topics: {
+        help: 'This must be an array of non-empty strings.',
+        defaultValue: [],
+        validate: function(v, is) {
+            if (!Array.isArray(v)) return false;
+            for (var i = 0; i < v.length; i++) {
+                if (!v[i] || !is.string(v[i])) return false;
+            }
+            return true;
+        }
+    },
+    handler: {
+        required: true,
+        help: 'This must be a named function.',
+        validate: function(v, is) { return is.fn(v) && !!v.name; }
+    },
+    bypass: {
+        help: 'This must be a named function.',
+        validate: function(v, is) { return is.fn(v) && !!v.name; }
     }
 });
 
@@ -129,6 +175,29 @@ exports.middleware = Schemata({
             return true;
         }
     }
+});
+
+exports.circuitbreaker = Schemata({
+    timeout: {
+        help: 'Expected a positive integer',
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
+        defaultValue: 1000 * 60 * 5
+    },
+    errorThreshold: {
+        help: 'Expected a fraction between 0 and 1 (not inclusive)',
+        validate: function(v, is) { return is.decimal(v) && is.gt(v,0) && is.lt(v,1); },
+        defaultValue: 0.1
+    },
+    lowLoadThreshold: {
+        help: 'This must be a positive integer',
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
+        defaultValue: 300
+    },
+    windowSize: {
+        help: 'This must be a positive integer',
+        validate: function(v, is) { return is.integer(v) && is.gt(v, 0); },
+        defaultValue: 1000 * 60 * 30
+    },
 });
 
 function nonEmptyString(v) {

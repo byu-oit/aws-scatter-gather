@@ -1,0 +1,14 @@
+{
+  "name": "aggregator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "author": "",
+  "dependencies": {
+    "aws-scatter-gather": "byu-oit-appdev/aws-scatter-gather",
+    "aws-sdk": "^2.7.10",
+    "express": "^4.14.0"
+  },
+  "license": "Apache-2.0"
+}

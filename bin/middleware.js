@@ -57,13 +57,16 @@ function middleware(configuration) {
         EventInterface.on('request', function(event) {
             if (!event.internal) return;
 
+            if(config.circuitbreaker) {
+                event['CBState'] = config.circuitbreaker.state();
+            }
             const params = {
                 Message: JSON.stringify(event),
                 TopicArn: event.topicArn
             };
             config.sns.publish(params, function (err) {
                 if (err) {
-                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
+                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, JSON.stringify(event));
                 } else {
                     debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
                 }
@@ -116,6 +119,15 @@ function middleware(configuration) {
                         if (event && event.requestId) {
                             debug('Received notification event ' + event.type + ':' + event.topicArn + ' with data: ' + event.data, event);
                             EventInterface.emit(event.type, event.topicArn, event);
+                        } else if (event && event.circuitbreakerEvent) {
+                            debug('Received circuitbreaker event ' + event.type, event);
+                            if (config.circuitbreaker) {
+                                if (event.type === 'success') {
+                                    config.circuitbreaker.success();
+                                } else if (event.type === 'fault') {
+                                    config.circuitbreaker.fault();
+                                }
+                            }
                         } else {
                             debug('Received unexpected event data.', event ? event : body.message);
                         }

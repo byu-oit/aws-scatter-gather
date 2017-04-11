@@ -15,22 +15,22 @@
  *    limitations under the License.
  **/
 'use strict';
+const AWS           = require('aws-sdk');
+const Scather       = require('aws-scatter-gather');
 
-process.on('uncaughtException', (err) => {
-    console.error(err.stack);
-    process.exit(1);
+exports.greetings = Scather.aggregator({
+    composer: function(responses) {
+        const str = Object.keys(responses)
+            .map(function(language) {
+                return language + ': ' + responses[language];
+            })
+            .join('\n\t');
+        return 'Greetings in multiple languages: \n\t' + str;
+    },
+    expects: ['Chinese'],
+    maxWait: 2500,
+    minWait: 0,
+    responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    sns: new AWS.SNS({ region: 'us-west-2' }),
+    topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic'
 });
-
-process.on('unhandledRejection', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-module.exports = {
-    aggregator:     require('./bin/aggregator'),
-    event:          require('./bin/event-interface'),
-    lambda:         require('./bin/lambda'),
-    middleware:     require('./bin/middleware'),
-    response:       require('./bin/response'),
-    circuitbreaker: require('./bin/circuitbreaker')
-};
