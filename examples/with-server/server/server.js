@@ -28,7 +28,7 @@ app.use(Scather.middleware({
     endpoint: 'http://url-to-this-server.com',
     server: app,
     sns: sns,
-    topics: ['arn:aws:sns:us-west-2:064824991063:ResponseTopic']
+    topics: ['arn:aws:sns:us-west-2:064824991063:RequestTopic']
 }));
 
 Scather.response({

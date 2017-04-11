@@ -22,6 +22,15 @@ const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 const uuid                  = require('./uuid');
+const CB                    = require('./circuitbreaker');
+
+const configure = function(configuration) {
+    const config = copy(schemas.request.normalize(configuration || {}), true);
+    if (!config.sns) {
+      return copy(Object.assign({}, config, {sns: new AWS.SNS()}), true);
+    }
+    return config;
+};
 
 /**
  * Create an aggregator function.
@@ -29,8 +38,7 @@ const uuid                  = require('./uuid');
  * @returns {Function}
  */
 module.exports = function (configuration) {
-    const config = copy(schemas.request.normalize(configuration || {}), true);
-    if (!config.sns) config.sns = new AWS.SNS();
+    var config = configure(configuration);
     const composer = config.composer;
 
     // create the aggregator function that will be returned
@@ -43,7 +51,8 @@ module.exports = function (configuration) {
             requestId: uuid(),
             responseArn: responseArn,
             topicArn: config.topicArn,
-            type: 'request'
+            type: 'request',
+            circuitbreakerState: (config.circuitbreaker) ? config.circuitbreaker.state() : CB.CLOSED
         });
         const missing = config.expects.slice(0);
         const result = {};
@@ -67,6 +76,12 @@ module.exports = function (configuration) {
             if (!received.error) {
                 result[received.name] = received.data;
                 debug('Received response to request ' + received.requestId + ' from ' + received.name);
+                if (config.circuitbreaker && received.circuitbreakerSuccess) {
+                  config.circuitbreaker.success();
+                }
+            } else if (config.circuitbreaker && received.circuitbreakerFault) {
+                debug('Received response to request ' + received.requestId + ' from ' + received.name + ' which triggered a circuitbreaker fault with the error: ' + received.error);
+                config.circuitbreaker.fault();
             } else {
                 debug('Received response to request ' + received.requestId + ' from ' + received.name + ' as an error: ' + received.error);
             }

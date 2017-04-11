@@ -16,21 +16,15 @@
  **/
 'use strict';
 
-process.on('uncaughtException', (err) => {
-    console.error(err.stack);
-    process.exit(1);
+const lambda = require('./index');
+
+// callback paradigm
+lambda.response('EchoThisBack', 'closed', function(err, data) {
+    console.log(data);
 });
 
-process.on('unhandledRejection', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-module.exports = {
-    aggregator:     require('./bin/aggregator'),
-    event:          require('./bin/event-interface'),
-    lambda:         require('./bin/lambda'),
-    middleware:     require('./bin/middleware'),
-    response:       require('./bin/response'),
-    circuitbreaker: require('./bin/circuitbreaker')
-};
+// promise paradigm
+lambda.response('EchoThisBack', 'closed')
+    .then(function(data) {
+        console.log(data);
+    });

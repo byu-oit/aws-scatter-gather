@@ -15,22 +15,11 @@
  *    limitations under the License.
  **/
 'use strict';
+const aggregators = require('./index');
+const service = require('../lambdas/service/index').response;
+const implementation = require('../lambdas/implementation/index').response;
 
-process.on('uncaughtException', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-module.exports = {
-    aggregator:     require('./bin/aggregator'),
-    event:          require('./bin/event-interface'),
-    lambda:         require('./bin/lambda'),
-    middleware:     require('./bin/middleware'),
-    response:       require('./bin/response'),
-    circuitbreaker: require('./bin/circuitbreaker')
-};
+aggregators.echoes.mock('EchoThisBack', [ service, implementation ])
+    .then(function(result) {
+        console.log(result);
+    });

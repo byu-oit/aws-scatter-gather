@@ -15,22 +15,14 @@
  *    limitations under the License.
  **/
 'use strict';
+const Scather = require('aws-scatter-gather');
 
-process.on('uncaughtException', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
+function implementation(data) {
+    return JSON.stringify({
+        data: data
+    });
+}
 
-process.on('unhandledRejection', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
+exports.response = Scather.response(implementation);
 
-module.exports = {
-    aggregator:     require('./bin/aggregator'),
-    event:          require('./bin/event-interface'),
-    lambda:         require('./bin/lambda'),
-    middleware:     require('./bin/middleware'),
-    response:       require('./bin/response'),
-    circuitbreaker: require('./bin/circuitbreaker')
-};
+exports.handler = Scather.lambda(exports.response);

@@ -15,22 +15,13 @@
  *    limitations under the License.
  **/
 'use strict';
+const aggregators = require('./index');
+const english = require('../lambdas/english/index').response;
+const french = require('../lambdas/french/index').response;
+const german = require('../lambdas/german/index').response;
+const spanish = require('../lambdas/spanish/index').response;
 
-process.on('uncaughtException', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error(err.stack);
-    process.exit(1);
-});
-
-module.exports = {
-    aggregator:     require('./bin/aggregator'),
-    event:          require('./bin/event-interface'),
-    lambda:         require('./bin/lambda'),
-    middleware:     require('./bin/middleware'),
-    response:       require('./bin/response'),
-    circuitbreaker: require('./bin/circuitbreaker')
-};
+aggregators.greetings.mock('James', [ english, french, german, spanish ])
+    .then(function(result) {
+        console.log(result);     // { english: 'Hello, James' }
+    });
