@@ -6,7 +6,7 @@ An NPM package that facilitates the scatter gather design pattern using AWS SNS 
 
 ## Examples
 
-Similar examples can be found in the `example` directory that is included as part of this package.
+Similar examples can be found in the `examples` directory that is included as part of this package.
 
 ### Aggregators
 
@@ -16,7 +16,7 @@ The aggregator has the role of initiating a request. It sends the request data o
 
 When an aggregator is created, what you've done is create a function that can be called to aggregate send the request and gather responses.
 
-- File location: `example/aggegator/index.js`
+- File location: `examples/with-lambda/aggegator/index.js`
 - To see configuration options, [look at the API](#aggregator--configuration-object---function).
 
 ```js
@@ -45,7 +45,7 @@ exports.greetings = Scather.aggregator({
 
 You can test that your aggregator is running as expected without having to send anything across the network. This is helpful for debugging and development.
 
-- File location: `example/aggregator/test.js`
+- File location: `examples/with-lambda/aggregator/test.js`
 - Using `mock` allows you to provide the [response](#response) functions as the second parameter.
 
 ```js
@@ -68,7 +68,7 @@ aggregators.greetings.mock('James', [ english ])
 
 Actually use SNS to communicate. You will need a server that is subscribed to the SNS Topic.
 
-- File location: `example/aggegator/server.js`
+- File location: `examples/with-lambda/aggegator/server.js`
 - Uses connect middleware communicate to and from AWS SNS Topics.
 
 ```js
@@ -104,7 +104,7 @@ app.listen(3000, function() {
 
 **Define a Lambda**
 
-- File location: `example/lambdas/english/index.js`
+- File location: `examples/with-lambda/lambdas/english/index.js`
 - The example shows usage with a callback paradigm and a promise paradigm.
 - The `Scather.response` takes a named function. In this case `english`.
 - The `Scather.lambda` function does the work of receiving SNS Topic Notifications, calling its associated Scather responder function, and sending the response back to the aggregator.
@@ -127,7 +127,7 @@ exports.handler = Scather.lambda(exports.response);
 
 **Unit Testing**
 
-- File location: `example/lambdas/english/test.js`
+- File location: `examples/with-lambda/lambdas/english/test.js`
 - Its difficult to debug code running on a lambda, so test locally when possible.
 
 ```js
@@ -149,7 +149,7 @@ lambda.response('James')
 
 Response functions are subscribed to SNS events if you are running your own server. If you are using a lambda to capture SNS events then look to the [Lambdas](#lambdas) section for details.
 
-- File location: `example/server/server.js`
+- File location: `examples/with-server/server/server.js`
 
 ```js
 const AWS = require('aws-sdk');
@@ -188,6 +188,113 @@ app.listen(3001, function() {
 });
 ```
 
+### Circuit Breaker
+
+If a responder depends on an upstream API, an aggregator may be configured with a circuit breaker that will suspend the responder if the upstream API goes down.
+
+- File location: `examples/with-circuitbreaker/aggregator/server.js`
+
+```js
+const AWS = require('aws-sdk');
+const express = require('express');
+const Scather = require('aws-scatter-gather');
+
+// create an express app
+const app = express();
+
+// create a circuitbreaker
+const circuitbreaker = Scather.circuitbreaker.config({
+  // trip for 1 minute
+  timeout: 1000 * 60,
+  // trip if errors exceed 10% of requests
+  errorThreshold: 0.1,
+  // don't trip breaker on first fault if less than 10 requests per window
+  lowLoadThreshold: 10,
+  // Ten minute window
+  windowSize: 1000 * 60 * 10
+});
+
+// add the scather sns middleware
+app.use(Scather.middleware({
+    endpoint: 'http://url-to-this-server.com',
+    server: app,
+    sns: new AWS.SNS({ region: 'us-west-2' }),
+    topics: ['arn:aws:sns:us-west-2:064824991063:ResponseTopic']
+}));
+
+const echoes = Scather.aggregator({
+    composer: function(responses) {
+        const str = Object.keys(responses)
+            .map(function(source) {
+                return source + ': ' + responses[source];
+            })
+            .join('\n\t');
+        return 'Echo from multiple sources: \n\t' + str;
+    },
+    expects: ['service'],
+    maxWait: 2500,
+    minWait: 0,
+    responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic',
+    circuitbreaker: circuitbreaker
+});
+
+// start the server listening on port 3000
+app.listen(3000, function() {
+    console.log('Server listening on port 3000');
+
+    // aggregate results through the SNS Topics - using callback paradigm
+    echoes('EchoThisBack', function(err, data) {
+        if(err) {
+          console.error(JSON.stringify(err));
+        }
+        console.log(JSON.stringify(data));
+    });
+
+});
+```
+
+- In order to bypass a request once the circuit breaker has tripped, the response must be configured with a name, a handler function, and a bypass function:
+
+```js
+'use strict';
+const Scather = require('aws-scatter-gather');
+const request = require('request');
+
+const snsArn = 'arn:aws:sns:us-west-2:064824991063:ResponseTopic';
+function service(data) {
+    const url = `http://echo.jsontest.com/data/${data}`;
+    return new Promise(function(resolve, reject) {
+        request(url, function(error, response, body) {
+            if(error) {
+                return reject(error);
+            }
+            if(response.statusCode !== 200) {
+                return reject({
+                    circuitbreakerFault: true,
+                    statusCode: response.statusCode
+                });
+            }
+            return resolve(body);
+        });
+    });
+}
+
+function bypass(data) {
+    return JSON.stringify({
+        data: 'Bypassed by circuit breaker'
+    });
+}
+
+exports.response = Scather.response({
+    name: 'service',
+    handler: service,
+    bypass: bypass
+});
+
+exports.handler = Scather.lambda(exports.response);
+```
+
 ## API
 
 ### aggregator ( configuration: Object ) : Function
@@ -204,6 +311,7 @@ Produce an aggregator function that can be called to make a request and aggregat
     - *name* - The aggregator function name. Defaults to `-`.
     - *responseArn* - The SNS Topic ARN that responders should send responses to. Defaults to match the *topicArn*.
     - *topicArn* - **REQUIRED** The SNS Topic ARN to send requests to. Responders will need to be listening on this Topic ARN.
+    - *circuitbreaker* - An optional circuit breaker object which will track faulty requests and suspend responders if an upstream endpoint goes down
 
 *Returns* a function that can take one or two arguments. The first argument is the data to send with the request. The second parameter is an optional callback function. If the callback is omitted then a Promise will be returned.
 
@@ -246,6 +354,7 @@ Produce a response function.
         - *name* - The name of the function.
         - *sns* - The SNS instance to use. This cannot be defined if passing in a function instead of an object for the response parameter.
         - *handler* - The handler function to call.
+        - *bypass* - If a circuit breaker is being used, the function to call if the upstream API is down.
 
 *Returns* a function that can take one or two arguments. The first arguments is the data to have the response process. The second parameter is an optional callback function. If the callback is omitted then a Promise will be returned.
 
@@ -284,6 +393,25 @@ resC('James', function(err, data) {
     console.log(data);
 }
 ```
+
+### circuitbreaker ( handler: Function | Object ) : Object
+
+Produce a circuitbreaker object. The circuit breaker will keep track of each request, and whether a successful response or a faulty response was the result. If enough responses are faulty within the request window, the circuit breaker will trip, bypassing requests for a time (the state will change from 'closed' to 'open'). Once the timeout has been reached, the state will change to 'indeterminate', where another faulty response will immediately change the state back to 'open'. If a successful response is recorded instead, the state will be reset to 'closed' and requests will operate normally.
+
+*Parameters*
+
+- *configuration* - This parameter defines how the circuit breaker should operate. Options for the configuration are as follows:
+    - *timeout* - How long (in miliseconds) the request should be bypassed for once the circuit breaker is tripped
+    - *errorThreshold* - The fraction of requests per window that can be faulty before the circuit breaker is tripped
+    - *lowLoadThreshold* - The minimum number of requests to consider within a window. For example, if the expected load on your API is about 10 requests per minute, and your configured window size is 10 minutes, you could configure the lowLoadThreshold to be 100 so that a small number of faulty requests under lower than expected load conditions won't trip the breaker.
+    - *windowSize* - The length of the window (in miliseconds) to analyze when faulty requests are detected.
+
+*Returns* a circuit breaker object with the following methods:
+- *request* - Called when a request is made.
+- *fault* - Called when a faulty response is detected.
+- *success* - Called when a successful response is detected.
+- *state* - Returns the current state of the circuit breaker.
+
 
 
 ## About
