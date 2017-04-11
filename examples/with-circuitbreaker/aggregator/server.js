@@ -15,7 +15,6 @@
  *    limitations under the License.
  **/
 'use strict';
-const aggregators = require('./index.js');
 const AWS = require('aws-sdk');
 const express = require('express');
 const Scather = require('aws-scatter-gather');
@@ -65,7 +64,7 @@ app.listen(3000, function() {
     console.log('Server listening on port 3000');
 
     // aggregate results through the SNS Topics - using callback paradigm
-    aggregators.echoes('EchoThisBack', function(err, data) {
+    echoes('EchoThisBack', function(err, data) {
         if(err) {
           console.error(JSON.stringify(err));
         }
