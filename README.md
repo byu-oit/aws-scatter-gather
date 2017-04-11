@@ -254,7 +254,9 @@ app.listen(3000, function() {
 });
 ```
 
-- In order to bypass a request once the circuit breaker has tripped, the response must be configured with a name, a handler function, and a bypass function:
+In order to bypass a request once the circuit breaker has tripped, the response must be configured with a name, a handler function, and a bypass function:
+
+- File location: `examples/with-circuitbreaker/lambdas/service/index.js`
 
 ```js
 'use strict';
