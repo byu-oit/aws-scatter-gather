@@ -254,7 +254,7 @@ app.listen(3000, function() {
 });
 ```
 
-In order to bypass a request once the circuit breaker has tripped, the response must be configured with a name, a handler function, and a bypass function:
+When the responder detects a fault in the upstream API, it should return an error with the attribute *circuitbreakerFault* set. In order to bypass a request once the circuit breaker has tripped, the response must be configured with a name, a handler function, and a bypass function:
 
 - File location: `examples/with-circuitbreaker/lambdas/service/index.js`
 
@@ -398,7 +398,7 @@ resC('James', function(err, data) {
 
 ### circuitbreaker ( handler: Function | Object ) : Object
 
-Produce a circuitbreaker object. The circuit breaker will keep track of each request, and whether a successful response or a faulty response was the result. If enough responses are faulty within the request window, the circuit breaker will trip, bypassing requests for a time (the state will change from 'closed' to 'open'). Once the timeout has been reached, the state will change to 'indeterminate', where another faulty response will immediately change the state back to 'open'. If a successful response is recorded instead, the state will be reset to 'closed' and requests will operate normally.
+Produce a circuitbreaker object. The circuit breaker will keep track of each request, and whether a successful response or a faulty response was the result. If enough responses are faulty within the request window, the circuit breaker will trip, bypassing requests for a time (the state will change from *closed* to *open*). Once the timeout has been reached, the state will change to *indeterminate*, where another faulty response will immediately change the state back to *open*. If a successful response is recorded instead, the state will be reset to *closed* and requests will operate normally.
 
 *Parameters*
 
