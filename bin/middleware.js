@@ -16,7 +16,6 @@
  **/
 'use strict';
 const AWS                   = require('aws-sdk');
-const request               = require('request');
 const debug                 = require('./debug')('middleware', 'cyan');
 const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
@@ -121,14 +120,24 @@ function middleware(configuration) {
     function getInstanceIp() {
         return new Promise(function(resolve, reject) {
             debug('Requesting IP address information from EC2');
-            request('http://169.254.169.254/latest/meta-data/public-ipv4/', function(err, response, body) {
-                if(err) {
-                    debug('Error requesting IP from EC2! ' + err);
-                    return reject(err);
+            http.get('http://169.254.169.254/latest/meta-data/public-ipv4/', function(res) {
+                const statusCode = res.statusCode;
+                if(statusCode !== 200) {
+                    debug('Error requesting IP from EC2! ' + statusCode);
+                    res.resume();
+                    return reject();
                 }
-                config.endpoint = 'http://' + body;
-                debug('setting endpoint to: ' + config.endpoint);
-                return resolve(config.endpoint);
+                res.setEncoding('utf-8');
+                var body = '';
+                res.on('data', function(data) { body += data });
+                res.on('end', function() {
+                    config.endpoint = 'http://' + body;
+                    debug('setting endpoint to: ' + config.endpoint);
+                    return resolve(config.endpoint);
+                });
+            }).on('error', function(err) {
+                debug('Error requesting IP from EC2! ' + err.message);
+                return reject();
             });
         });
     }
