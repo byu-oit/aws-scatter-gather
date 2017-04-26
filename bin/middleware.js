@@ -16,6 +16,7 @@
  **/
 'use strict';
 const AWS                   = require('aws-sdk');
+const request               = require('request');
 const debug                 = require('./debug')('middleware', 'cyan');
 const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
@@ -32,48 +33,6 @@ function middleware(configuration) {
     const subscriptions = {};
     if (!config.sns) config.sns = new AWS.SNS();
 
-    // for any requests send them to an sns topic
-    /*if (!hasRun) {
-        hasRun = true;
-
-        // listen for internal requests and send them out
-        EventInterface.on('request', function(event) {
-            if (!event.internal) return;
-
-            const params = {
-                Message: JSON.stringify(event),
-                TopicArn: event.topicArn
-            };
-            config.sns.publish(params, function (err) {
-                if (err) {
-                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, event);
-                } else {
-                    debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
-                }
-            });
-        });
-
-        // listen for internal responses and send them out
-        EventInterface.on('request', function(event) {
-            if (!event.internal) return;
-
-            if(config.circuitbreaker) {
-                event['CBState'] = config.circuitbreaker.state();
-            }
-            const params = {
-                Message: JSON.stringify(event),
-                TopicArn: event.topicArn
-            };
-            config.sns.publish(params, function (err) {
-                if (err) {
-                    debug('Failed to publish request event ' + event.requestId + ' to ' + event.topicArn + ': ' + err.message, JSON.stringify(event));
-                } else {
-                    debug('Published request event ' + event.requestId + ' to ' + event.topicArn, event);
-                }
-            });
-        });
-    }*/
-
     // overwrite the server listen function to know when to start making subscriptions
     if (config.subscribe && config.topics.length > 0) {
         const serverListen = config.server.listen;
@@ -81,13 +40,16 @@ function middleware(configuration) {
             const args = Array.prototype.slice.call(arguments, 0);
             const callback = typeof args[args.length - 1] === 'function' ? args.pop() : null;
             args.push(function () {
-                const promises = config.subscribe ? config.topics.map(subscribe) : [];
-                if (callback) {
-                    Promise.all(promises).then(
-                        function() { callback.apply(config.server, arguments) },
-                        function() { callback.apply(config.server, arguments) }
-                    );
-                }
+                const setupPromise = (config.endpoint) ? Promise.resolve() : getInstanceIp();
+                setupPromise.then(function() {
+                    const promises = config.subscribe ? config.topics.map(subscribe) : [];
+                    if (callback) {
+                        Promise.all(promises).then(
+                            function() { callback.apply(config.server, arguments) },
+                            function() { callback.apply(config.server, arguments) }
+                        );
+                    }
+                });
             });
             serverListen.apply(config.server, args);
         };
@@ -152,6 +114,21 @@ function middleware(configuration) {
             })
             .catch(next);
     };
+
+    /**
+     * Lookup ec2 public IP address for this instance.
+     */
+    function getInstanceIp() {
+        return new Promise(function(resolve, reject) {
+            request('http://169.254.169.254/latest/meta-data/public-ipv4/', function(err, response, body) {
+                if(err) {
+                    return reject(err);
+                }
+                config.endpoint = 'http://' + body;
+                return resolve(config.endpoint);
+            });
+        });
+    }
 
     /**
      * Subscribe to an SNS Topic.
