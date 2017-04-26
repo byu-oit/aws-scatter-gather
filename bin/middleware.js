@@ -16,6 +16,7 @@
  **/
 'use strict';
 const AWS                   = require('aws-sdk');
+const http                  = require('http');
 const debug                 = require('./debug')('middleware', 'cyan');
 const defer                 = require('./defer');
 const EventInterface        = require('./event-interface');
