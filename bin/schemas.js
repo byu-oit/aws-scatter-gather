@@ -145,7 +145,6 @@ exports.middleware = Schemata({
     endpoint: {
         help: 'This must be a valid URL.',
         validate: function(v, is) { return is.string(v) && /^https?:\/\/.+/; },
-        required: true
     },
     passThrough: {
         defaultValue: false,
