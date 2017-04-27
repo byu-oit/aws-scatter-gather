@@ -117,6 +117,7 @@ function middleware(configuration) {
 
     /**
      * Lookup ec2 public IP address for this instance.
+     * See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html for details
      */
     function getInstanceIp() {
         return new Promise(function(resolve, reject) {
