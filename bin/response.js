@@ -109,7 +109,7 @@ module.exports = function(handler) {
                     debug(err.stack, err); 
                     const event = schemas.event.normalize({
                         data: '',
-                        error: err,
+                        error: JSON.stringify(err),
                         requestId: e.requestId,
                         name: config.name,
                         topicArn: e.responseArn,

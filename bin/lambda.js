@@ -89,7 +89,7 @@ function lambda(handler) {
                                 .catch(function(err) {
                                     debug(err.stack, err); 
                                     const event = schemas.event.normalize({
-                                        error: err,
+                                        error: JSON.stringify(err),
                                         data: '',
                                         requestId: e.requestId,
                                         name: config.name,
