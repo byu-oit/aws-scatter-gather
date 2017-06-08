@@ -15,8 +15,8 @@ ddd:
   ubiquitous_language_url: 
   context_map_url: 
 links:
-  system_documentation_url: https://github.com/byu-oit-appdev/aws-scatter-gather
-  source_repo_url: https://github.com/byu-oit-appdev/aws-scatter-gather
+  system_documentation_url: https://github.com/byu-oit/aws-scatter-gather
+  source_repo_url: https://github.com/byu-oit/aws-scatter-gather
   swagger_urls:
 microservice: False
 technologies_used:
@@ -49,5 +49,5 @@ tags:
   env: prd
   app: aws-scatter-gather
   team: gro:AD-Global Education Initiative
-federation_json_url: https://raw.githubusercontent.com/byu-oit-appdev/aws-scatter-gather/master/.repo-meta.yml
+federation_json_url: https://raw.githubusercontent.com/byu-oit/aws-scatter-gather/master/.repo-meta.yml
 
