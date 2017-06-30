@@ -49,5 +49,5 @@ tags:
   env: prd
   app: aws-scatter-gather
   team: gro:AD-Global Education Initiative
-federation_json_url: https://raw.githubusercontent.com/byu-oit-appdev/aws-scatter-gather/master/.repo-meta.yml
+federation_json_url: https://raw.githubusercontent.com/byu-oit/aws-scatter-gather/master/.repo-meta.yml
 
