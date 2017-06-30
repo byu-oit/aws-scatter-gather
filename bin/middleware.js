@@ -23,13 +23,11 @@ const EventInterface        = require('./event-interface');
 const schemas               = require('./schemas');
 
 const rxTopicArn = /^arn:aws:sns:[\s\S]+?:\d+:[\s\S]+?$/;
-var hasRun = false;
 
 module.exports = middleware;
 
 function middleware(configuration) {
     const config = schemas.middleware.normalize(configuration || {});
-    const echoes = {};
     const subscriptions = {};
     if (!config.sns) config.sns = new AWS.SNS();
 
@@ -200,13 +198,10 @@ function middleware(configuration) {
     }
 }
 
-/**
- * Parse the response body.
- * @param {Object} req
- * @returns {Promise}
- */
-function parseBody(req) {
+function extractBody(req) {
     return new Promise(function(resolve, reject) {
+        if (req.body) return resolve(req.body);
+
         var body = '';
 
         req.on('error', reject);
@@ -216,12 +211,23 @@ function parseBody(req) {
         });
 
         req.on('end', function() {
-            try {
-                req.body = JSON.parse(body);
-                resolve(req.body);
-            } catch (err) {
-                reject(Error('Unexpected body format received. Expected application/json, received: ' + body));
-            }
+            req.body = body;
         });
     });
+}
+
+/**
+ * Parse the response body.
+ * @param {Object} req
+ * @returns {Promise}
+ */
+function parseBody(req) {
+    return extractBody(req)
+        .then(() => {
+            try {
+                return JSON.parse(req.body);
+            } catch (err) {
+                throw Error('Unexpected body format received. Expected application/json, received: ' + req.body);
+            }
+        });
 }
