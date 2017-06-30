@@ -1,6 +1,6 @@
 {
   "name": "aws-scatter-gather",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS Topics.",
   "main": "index.js",
   "bin": {
@@ -27,10 +27,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/byu-oit-appdev/aws-scatter-gather.git"
+    "url": "git+https://github.com/byu-oit/aws-scatter-gather.git"
   },
   "bugs": {
-    "url": "https://github.com/byu-oit-appdev/aws-scatter-gather/issues"
+    "url": "https://github.com/byu-oit/aws-scatter-gather/issues"
   },
-  "homepage": "https://github.com/byu-oit-appdev/aws-scatter-gather#readme"
+  "homepage": "https://github.com/byu-oit/aws-scatter-gather#readme"
 }
