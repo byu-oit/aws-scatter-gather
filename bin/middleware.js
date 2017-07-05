@@ -200,7 +200,7 @@ function middleware(configuration) {
 
 function extractBody(req) {
     return new Promise(function(resolve, reject) {
-        if (req.body) return resolve(req.body);
+        if (req._body || req.hasOwnProperty('body')) return resolve(req.body);
 
         var body = '';
 
@@ -212,6 +212,7 @@ function extractBody(req) {
 
         req.on('end', function() {
             req.body = body;
+            resolve(req.body);
         });
     });
 }
