@@ -225,6 +225,7 @@ function extractBody(req) {
 function parseBody(req) {
     return extractBody(req)
         .then(() => {
+            if (req.body && typeof req.body === 'object') return req.body;
             try {
                 return JSON.parse(req.body);
             } catch (err) {
