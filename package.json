@@ -1,6 +1,6 @@
 {
   "name": "aws-scatter-gather",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "An NPM package that facilitates the scatter gather design pattern using AWS SNS Topics.",
   "main": "index.js",
   "bin": {
