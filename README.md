@@ -342,6 +342,7 @@ If the lambda function is invoked by an SNS Topic then the handler will be calle
     - *sns* - An AWS.SNS instance. Defaults to creating its own, but its own may not be configured property. You can configure it by setting SNS defaults or passing in your own AWS.SNS instance.
     - *subscribe* - A boolean indicating whether an SNS Topic subscription should automatically be made for any *topics* listed. There is no harm in attempting to resubscribe to a topic. Defaults to `true`.
     - *topics* - An array of Topic ARN strings that the middleware will handle requests for. Defaults to `[]`.
+    - *useBodyParser* - Set to false if you are already implementing your own body parser middleware. This must be implemented prior to this middleware. Defaults to `true`.
 
 ### response ( handler: Function | Object ) : Function
 
