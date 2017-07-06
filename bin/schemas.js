@@ -164,7 +164,6 @@ exports.middleware = Schemata({
         transform: function(v) { return !!v }
     },
     topics: {
-        help: 'This must be an array of non-empty strings.',
         defaultValue: [],
         validate: function(v, is) {
             if (!Array.isArray(v)) return false;
@@ -173,6 +172,10 @@ exports.middleware = Schemata({
             }
             return true;
         }
+    },
+    useBodyParser: {
+        defaultValue: true,
+        transform: function(v) { return !!v }
     }
 });
 

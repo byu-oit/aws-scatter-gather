@@ -70,7 +70,7 @@ function middleware(configuration) {
         // if this is not a message from aws then continue to next middleware
         if (req.method !== 'POST' || !req.headers['x-amz-sns-message-type']) return next();
 
-        parseBody(req)
+        (config.useBodyParser ? parseBody(req) : Promise.resolve(req.body))
             .then(function(body) {
                 switch (req.headers['x-amz-sns-message-type']) {
                     case 'Notification':
