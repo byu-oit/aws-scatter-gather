@@ -24,6 +24,7 @@ const AWS           = require('aws-sdk');
 const Scather       = require('aws-scatter-gather');
 
 exports.greetings = Scather.aggregator({
+    // transform each response - it's also possible to do this with "each" property by modifying the received object's data.
     composer: function(responses) {
         const str = Object.keys(responses)
             .map(function(language) {
@@ -32,9 +33,40 @@ exports.greetings = Scather.aggregator({
             .join('\n\t');
         return 'Greetings in multiple languages: \n\t' + str;
     },
+    
+    // this example each function does that same thing as expects property
+    each: function(received, state, done) {
+        if (state.requested && received.name === 'english') {
+            done();
+        }
+    },
+    
+    // expecing a response with the name of english
     expects: ['english'],
+    
+    // wait at least 0 milliseconds and at most 2500 milliseconds
     maxWait: 2500,
     minWait: 0,
+    
+    // provide the SNS object to use and specify the SNS ARN for sending and receiving
+    responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
+    sns: new AWS.SNS({ region: 'us-west-2' }),
+    topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic'
+});
+```
+
+**Aggregator using Each**
+
+```js
+const AWS           = require('aws-sdk');
+const Scather       = require('aws-scatter-gather');
+
+exports.greetings = Scather.aggregator({
+    each: function(response, state, done) {
+        console.log(response);
+        
+    },
+    minWait: 5000,
     responseArn: 'arn:aws:sns:us-west-2:064824991063:ResponseTopic',
     sns: new AWS.SNS({ region: 'us-west-2' }),
     topicArn: 'arn:aws:sns:us-west-2:064824991063:RequestTopic'
@@ -307,6 +339,10 @@ Produce an aggregator function that can be called to make a request and aggregat
 
 - *configuration* - This parameter defines how the aggregator should send out the response and how to gather results. Options for the configuration are as follows:
     - *composer* - An optional function that can be defined to process and/or transform the results gathered in from a scatter request.
+    - *each* - A function to call with each received response. This function will be passed the following parameters:
+        1) received - The entire received object. To get the received object's payload use `recieved.data`. 
+        2) state - The state object in this format: `{ active: boolean, minWaitReached: boolean, missing: Array.<string>`. Active tells whether the aggregator will continue to process additional responses.
+        3) done - a function that can be used to signify that aggregation is done. You can pass in an error as it's first parameter if you want to reject the aggregator response.
     - *expects* - An array of strings for responses that are expected. If all expected responses have been received and the *minWait* has been reached then the aggregator will resolve immediately. Defaults to `[]`.
     - *maxWait* - The maximum number of milliseconds to wait for all expected responses before resolving the aggregator. Defaults to `2500`.
     - *minWait* - The minimum number of milliseconds to wait before resolving the aggregator. Defaults to `0`.
@@ -383,7 +419,7 @@ resP('James')
 // call resP using callback paradigm
 resP('James', function(err, data) {
     console.log(data);
-}
+});
 
 // call resC using promise paradigm
 resC('James')
@@ -394,7 +430,7 @@ resC('James')
 // call resC using callback paradigm
 resC('James', function(err, data) {
     console.log(data);
-}
+});
 ```
 
 ### circuitbreaker ( handler: Function | Object ) : Object
