@@ -68,6 +68,10 @@ exports.request = Schemata({
         help: 'This must be a function.',
         validate: function(v) { return typeof v === 'function' }
     },
+    each: {
+        help: 'A function to call with each response.',
+        validate: function(v) { return typeof v === 'function' }
+    },
     expects: {
         defaultValue: [],
         help: 'This must be an array of strings.',

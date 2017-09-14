@@ -62,39 +62,53 @@ module.exports = function (configuration) {
         // define the gatherer function
         function gatherer(received) {
 
-            // if already resolved or rejected then exit now
-            if (!pending) return;
-
-            // verify that the event is being listened for
-            if (received.requestId !== event.requestId) return;
-
             // delete reference from the wait map
             const index = missing.indexOf(received.name);
             if (index !== -1) missing.splice(index, 1);
 
-            // store response
-            if (!received.error) {
-                result[received.name] = received.data;
-                debug('Received response to request ' + received.requestId + ' from ' + received.name);
-                if (config.circuitbreaker && received.circuitbreakerSuccess) {
-                  config.circuitbreaker.success();
+            // determine if the response was requested
+            const requested = received.requestId === event.requestId;
+
+            // if already resolved or rejected then exit now, also verify that the event is being listened for
+            if (pending && requested) {
+
+                // store response
+                if (!received.error) {
+                    result[received.name] = received.data;
+                    debug('Received response to request ' + received.requestId + ' from ' + received.name);
+                    if (config.circuitbreaker && received.circuitbreakerSuccess) {
+                        config.circuitbreaker.success();
+                    }
+                } else if (config.circuitbreaker && received.circuitbreakerFault) {
+                    debug('Received response to request ' + received.requestId + ' from ' + received.name + ' which triggered a circuitbreaker fault with the error: ' + received.error);
+                    config.circuitbreaker.fault();
+                } else {
+                    debug('Received response to request ' + received.requestId + ' from ' + received.name + ' as an error: ' + received.error);
                 }
-            } else if (config.circuitbreaker && received.circuitbreakerFault) {
-                debug('Received response to request ' + received.requestId + ' from ' + received.name + ' which triggered a circuitbreaker fault with the error: ' + received.error);
-                config.circuitbreaker.fault();
-            } else {
-                debug('Received response to request ' + received.requestId + ' from ' + received.name + ' as an error: ' + received.error);
+
+                // all expected responses received and min timeout passed, so resolve the deferred promise
+                if (missing.length === 0) {
+                    clearTimeout(maxTimeoutId);
+                    debug('Received all expected responses for request ' + received.requestId);
+                    if (minTimeoutReached) {
+                        pending = false;
+                        deferred.resolve(result);
+                    }
+                }
+
+                const meta = {
+                    active: pending,
+                    minWaitReached: minTimeoutReached,
+                    missing: missing.slice(0)
+                };
+                const done = function(err) {
+                    pending = false;
+                    if (err) return deferred.reject(err);
+                    deferred.resolve(result);
+                };
+                config.each(received, meta, done);
             }
 
-            // all expected responses received and min timeout passed, so resolve the deferred promise
-            if (missing.length === 0) {
-                clearTimeout(maxTimeoutId);
-                debug('Received all expected responses for request ' + received.requestId);
-                if (minTimeoutReached) {
-                    pending = false;
-                    deferred.resolve(result);
-                }
-            }
         }
 
         function unsubscribe() {
