@@ -102,6 +102,7 @@ module.exports = function (configuration) {
                     missing: missing.slice(0)
                 };
                 const done = function(err) {
+                    pending = false;
                     if (err) return deferred.reject(err);
                     deferred.resolve(result);
                 };
