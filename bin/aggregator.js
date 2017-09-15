@@ -96,17 +96,19 @@ module.exports = function (configuration) {
                     }
                 }
 
-                const meta = {
-                    active: pending,
-                    minWaitReached: minTimeoutReached,
-                    missing: missing.slice(0)
-                };
-                const done = function(err) {
-                    pending = false;
-                    if (err) return deferred.reject(err);
-                    deferred.resolve(result);
-                };
-                config.each(received, meta, done);
+                if (config.each) {
+                    const meta = {
+                        active: pending,
+                        minWaitReached: minTimeoutReached,
+                        missing: missing.slice(0)
+                    };
+                    const done = function (err) {
+                        pending = false;
+                        if (err) return deferred.reject(err);
+                        deferred.resolve(result);
+                    };
+                    config.each(received, meta, done);
+                }
             }
 
         }
